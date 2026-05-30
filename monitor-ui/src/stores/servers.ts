@@ -9,7 +9,7 @@ export const useServersStore = defineStore('servers', () => {
   const error = ref<string | null>(null);
   const lastSync = ref<Date | null>(null);
 
-  const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '');
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '/api/v1')).replace(/\/$/, '');
 
   const onlineCount = computed(() => servers.value.filter(s => s.status === 'up').length);
   const degradedCount = computed(() => servers.value.filter(s => s.status === 'degraded').length);

@@ -1,4 +1,4 @@
-.PHONY: help setup start stop build migrate status clean
+.PHONY: help setup setup-prod start stop build migrate status clean
 
 # Colors for terminal styling
 YELLOW := \033[33m
@@ -13,6 +13,7 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Available Targets:$(RESET)"
 	@echo "  $(GREEN)setup$(RESET)        Install all dependencies (Docker images, Composer, npm)"
+	@echo "  $(GREEN)setup-prod$(RESET)   Bootstrap production deployment + Nginx configuration"
 	@echo "  $(GREEN)start$(RESET)        Start Docker stack and local dev servers (Laravel API, Vue UI)"
 	@echo "  $(GREEN)stop$(RESET)         Stop local dev servers and shut down Docker stack"
 	@echo "  $(GREEN)build$(RESET)        Build Vue UI production static files"
@@ -34,6 +35,26 @@ setup:
 	cd monitor-ui && cp -n .env.example .env || true
 	cd monitor-ui && npm install
 	@echo "$(GREEN)✓ Setup complete! Run 'make start' to launch the stack.$(RESET)"
+
+setup-prod:
+	@echo "$(YELLOW)=== Step 1: Pulling Docker Monitoring Stack ===$(RESET)"
+	docker compose -f infra/docker-compose.yml pull
+	@echo "$(YELLOW)=== Step 2: Bootstrapping Laravel API Backend (Prod) ===$(RESET)"
+	cd monitor-api && cp -n .env.example .env || true
+	cd monitor-api && composer install --no-dev --optimize-autoloader
+	cd monitor-api && php artisan key:generate --ansi
+	cd monitor-api && php artisan vendor:publish --tag="health-config" --force
+	cd monitor-api && php artisan vendor:publish --tag="health-migrations" --force
+	cd monitor-api && php artisan migrate --force
+	@echo "$(YELLOW)=== Step 3: Bootstrapping Vue UI Frontend (Prod) ===$(RESET)"
+	cd monitor-ui && cp -n .env.example .env || true
+	cd monitor-ui && npm install
+	cd monitor-ui && npm run build
+	@echo "$(YELLOW)=== Step 4: Configuring Nginx Reverse Proxy ===$(RESET)"
+	sudo cp infra/nginx/serverwatch.conf /etc/nginx/sites-available/serverwatch
+	sudo ln -sf /etc/nginx/sites-available/serverwatch /etc/nginx/sites-enabled/serverwatch
+	sudo nginx -t && sudo systemctl reload nginx
+	@echo "$(GREEN)✓ Production setup complete! Served at http://YOUR_SERVER_IP/dashboard$(RESET)"
 
 start: stop
 	@echo "$(YELLOW)=== Starting Docker Stack (Prometheus, Grafana, Uptime Kuma) ===$(RESET)"
