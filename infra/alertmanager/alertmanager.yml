@@ -1,0 +1,14 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'instance']
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+
+receivers:
+  - name: 'default-receiver'
+    # Minimal configuration for testing/local run without crashing.
+    # Production setups will configure email_configs, slack_configs, or webhook_configs.
