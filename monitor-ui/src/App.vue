@@ -1,149 +1,195 @@
 <template>
   <div class="app-layout">
-    <!-- Navbar -->
-    <header class="navbar">
-      <div class="nav-container">
-        <div class="brand">
-          <div class="logo-icon"></div>
-          <h1>ServerWatch</h1>
-        </div>
-        <div class="nav-tabs">
-          <button 
-            class="tab-btn" 
-            :class="{ active: currentTab === 'dashboard' }"
-            @click="currentTab = 'dashboard'"
-          >
-            Dashboard
-          </button>
-          <button 
-            class="tab-btn" 
-            :class="{ active: currentTab === 'uptime' }"
-            @click="currentTab = 'uptime'"
-          >
-            Uptime History
-          </button>
-        </div>
-        <div class="sync-status" v-if="store.lastSync">
-          <span>Synced {{ formattedSyncTime }}</span>
-          <button class="refresh-btn" @click="refreshAll" :disabled="store.loading">
-            <span class="refresh-icon" :class="{ spinning: store.loading }">↻</span>
-          </button>
-        </div>
-      </div>
-    </header>
+    <!-- If not authenticated, render Login view -->
+    <LoginView v-if="!authStore.isAuthenticated" />
 
-    <main class="container">
-      <!-- Error Alert banner -->
-      <div class="error-banner" v-if="store.error">
-        <p>⚠️ Connection Error: {{ store.error }}. Retrying automatically...</p>
-      </div>
+    <!-- If authenticated, render full application layout -->
+    <template v-else>
+      <!-- Navbar -->
+      <header class="navbar">
+        <div class="nav-container">
+          <div class="brand">
+            <div class="logo-icon"></div>
+            <h1>BIT DevOps ServerWatcher</h1>
+          </div>
+          <div class="nav-tabs">
+            <button 
+              class="tab-btn" 
+              :class="{ active: currentTab === 'dashboard' }"
+              @click="currentTab = 'dashboard'"
+            >
+              Dashboard
+            </button>
+            <button 
+              class="tab-btn" 
+              :class="{ active: currentTab === 'uptime' }"
+              @click="currentTab = 'uptime'"
+            >
+              Uptime History
+            </button>
+            <button 
+              class="tab-btn" 
+              :class="{ active: currentTab === 'users' }"
+              @click="currentTab = 'users'"
+            >
+              User Management
+            </button>
+            <button 
+              class="tab-btn" 
+              :class="{ active: currentTab === 'servers' }"
+              @click="currentTab = 'servers'"
+            >
+              Server Settings
+            </button>
+          </div>
 
-      <!-- Stats Row -->
-      <section class="stats-row">
-        <div class="glass-card stat-card">
-          <span class="stat-label">Average Uptime</span>
-          <span class="stat-value text-green">{{ store.avgUptime }}%</span>
-          <div class="stat-indicator green"></div>
-        </div>
-
-        <div class="glass-card stat-card">
-          <span class="stat-label">Online Nodes</span>
-          <span class="stat-value">{{ store.onlineCount }} / {{ store.servers.length }}</span>
-          <div class="stat-indicator green"></div>
-        </div>
-
-        <div class="glass-card stat-card">
-          <span class="stat-label">Degraded Nodes</span>
-          <span class="stat-value" :class="{ 'text-amber': store.degradedCount > 0 }">
-            {{ store.degradedCount }}
-          </span>
-          <div class="stat-indicator" :class="store.degradedCount > 0 ? 'amber' : 'gray'"></div>
-        </div>
-
-        <div class="glass-card stat-card">
-          <span class="stat-label">Firing Alerts</span>
-          <span class="stat-value" :class="{ 'text-red': activeAlerts.length > 0 }">
-            {{ activeAlerts.length }}
-          </span>
-          <div class="stat-indicator" :class="activeAlerts.length > 0 ? 'red' : 'gray'"></div>
-        </div>
-      </section>
-
-      <!-- Firing Alerts Panel (Show if any alerts are active) -->
-      <section class="alerts-section glass-card" v-if="activeAlerts.length > 0">
-        <div class="section-title">
-          <span class="pulse-dot down"></span>
-          <h2>Active System Incidents</h2>
-        </div>
-        <div class="alerts-list">
-          <div v-for="alert in activeAlerts" :key="alert.id" class="alert-item" :class="alert.severity">
-            <div class="alert-meta">
-              <span class="alert-badge" :class="alert.severity">{{ alert.severity }}</span>
-              <span class="alert-name">{{ alert.name }}</span>
-              <span class="alert-host">@ {{ alert.instance }}</span>
+          <div class="user-profile">
+            <div class="sync-status" v-if="store.lastSync && currentTab !== 'users' && currentTab !== 'servers'">
+              <span>Synced {{ formattedSyncTime }}</span>
+              <button class="refresh-btn" @click="refreshAll" :disabled="store.loading">
+                <span class="refresh-icon" :class="{ spinning: store.loading }">↻</span>
+              </button>
             </div>
-            <p class="alert-summary">{{ alert.summary }}</p>
-            <span class="alert-time">Triggered {{ formatAlertTime(alert.started_at) }}</span>
+            
+            <div class="user-info" v-if="authStore.user">
+              <span class="user-nav-avatar">{{ authStore.user.name.charAt(0).toUpperCase() }}</span>
+              <span class="user-nav-name">{{ authStore.user.name }}</span>
+            </div>
+            <button class="logout-btn" @click="authStore.logout()" :disabled="authStore.loading">
+              Logout
+            </button>
           </div>
         </div>
-      </section>
+      </header>
 
-      <!-- Tab Content: Dashboard view -->
-      <section v-if="currentTab === 'dashboard'">
-        <div class="section-header">
-          <h2>Monitored Servers</h2>
-          <span class="nodes-count">{{ store.servers.length }} nodes total</span>
-        </div>
-        
-        <div class="grid">
-          <ServerCard 
-            v-for="server in store.servers" 
-            :key="server.instance" 
-            :server="server"
-            :history-data="server.history || []"
-          />
-        </div>
-      </section>
-
-      <!-- Tab Content: Uptime Timeline Details -->
-      <section v-else class="timeline-details-view">
-        <div class="section-header">
-          <h2>Uptime Timeline (Last 90 Days)</h2>
-          <p class="section-desc">Historical timeline logs for system targets.</p>
+      <main class="container">
+        <!-- Error Alert banner -->
+        <div class="error-banner" v-if="store.error">
+          <p>⚠️ Connection Error: {{ store.error }}. Retrying automatically...</p>
         </div>
 
-        <div class="timeline-container glass-card">
-          <div v-for="server in store.servers" :key="server.instance" class="timeline-row">
-            <div class="timeline-info">
-              <div>
-                <h3>{{ server.name }}</h3>
-                <span class="timeline-role">{{ server.role }} · <code class="code-ip">{{ server.instance }}</code></span>
+        <!-- Stats Row (hidden on Admin tabs) -->
+        <section class="stats-row" v-if="currentTab !== 'users' && currentTab !== 'servers'">
+          <div class="glass-card stat-card">
+            <span class="stat-label">Average Uptime</span>
+            <span class="stat-value text-green">{{ store.avgUptime }}%</span>
+            <div class="stat-indicator green"></div>
+          </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Online Nodes</span>
+            <span class="stat-value">{{ store.onlineCount }} / {{ store.servers.length }}</span>
+            <div class="stat-indicator green"></div>
+          </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Degraded Nodes</span>
+            <span class="stat-value" :class="{ 'text-amber': store.degradedCount > 0 }">
+              {{ store.degradedCount }}
+            </span>
+            <div class="stat-indicator" :class="store.degradedCount > 0 ? 'amber' : 'gray'"></div>
+          </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Firing Alerts</span>
+            <span class="stat-value" :class="{ 'text-red': activeAlerts.length > 0 }">
+              {{ activeAlerts.length }}
+            </span>
+            <div class="stat-indicator" :class="activeAlerts.length > 0 ? 'red' : 'gray'"></div>
+          </div>
+        </section>
+
+        <!-- Firing Alerts Panel (Show if any alerts are active, hidden on Admin tabs) -->
+        <section class="alerts-section glass-card" v-if="activeAlerts.length > 0 && currentTab !== 'users' && currentTab !== 'servers'">
+          <div class="section-title">
+            <span class="pulse-dot down"></span>
+            <h2>Active System Incidents</h2>
+          </div>
+          <div class="alerts-list">
+            <div v-for="alert in activeAlerts" :key="alert.id" class="alert-item" :class="alert.severity">
+              <div class="alert-meta">
+                <span class="alert-badge" :class="alert.severity">{{ alert.severity }}</span>
+                <span class="alert-name">{{ alert.name }}</span>
+                <span class="alert-host">@ {{ alert.instance }}</span>
               </div>
-              <div class="timeline-status-block">
-                <span class="status-indicator-pill" :class="server.status">
-                  {{ server.status === 'up' ? 'Operational' : 'Outage' }}
-                </span>
-              </div>
-            </div>
-            <div class="timeline-chart">
-              <UptimeBar :server-name="server.name" :history="server.history || []" :days="90" />
+              <p class="alert-summary">{{ alert.summary }}</p>
+              <span class="alert-time">Triggered {{ formatAlertTime(alert.started_at) }}</span>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <!-- Tab Content: Dashboard view -->
+        <section v-if="currentTab === 'dashboard'">
+          <div class="section-header">
+            <h2>Monitored Servers</h2>
+            <span class="nodes-count">{{ store.servers.length }} nodes total</span>
+          </div>
+          
+          <div class="grid">
+            <ServerCard 
+              v-for="server in store.servers" 
+              :key="server.instance" 
+              :server="server"
+              :history-data="server.history || []"
+            />
+          </div>
+        </section>
+
+        <!-- Tab Content: Uptime Timeline Details -->
+        <section v-else-if="currentTab === 'uptime'" class="timeline-details-view">
+          <div class="section-header">
+            <h2>Uptime Timeline (Last 90 Days)</h2>
+            <p class="section-desc">Historical timeline logs for system targets.</p>
+          </div>
+
+          <div class="timeline-container glass-card">
+            <div v-for="server in store.servers" :key="server.instance" class="timeline-row">
+              <div class="timeline-info">
+                <div>
+                  <h3>{{ server.name }}</h3>
+                  <span class="timeline-role">{{ server.role }} · <code class="code-ip">{{ server.instance }}</code></span>
+                </div>
+                <div class="timeline-status-block">
+                  <span class="status-indicator-pill" :class="server.status">
+                    {{ server.status === 'up' ? 'Operational' : 'Outage' }}
+                  </span>
+                </div>
+              </div>
+              <div class="timeline-chart">
+                <UptimeBar :server-name="server.name" :history="server.history || []" :days="90" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab Content: User Management -->
+        <section v-else-if="currentTab === 'users'" class="user-management-view">
+          <UserManagement />
+        </section>
+
+        <!-- Tab Content: Server Settings -->
+        <section v-else class="server-management-view">
+          <ServerManagement />
+        </section>
+      </main>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useServersStore } from './stores/servers';
+import { useAuthStore } from './stores/auth';
 import ServerCard from './components/ServerCard.vue';
 import UptimeBar from './components/UptimeBar.vue';
+import LoginView from './components/LoginView.vue';
+import UserManagement from './components/UserManagement.vue';
+import ServerManagement from './components/ServerManagement.vue';
 
 const store = useServersStore();
-const currentTab = ref<'dashboard' | 'uptime'>('dashboard');
-let pollTimer: ReturnType<typeof setInterval>;
+const authStore = useAuthStore();
+const currentTab = ref<'dashboard' | 'uptime' | 'users' | 'servers'>('dashboard');
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 const activeAlerts = computed(() => {
   return store.alerts.filter(alert => alert.state === 'firing');
@@ -168,18 +214,42 @@ function formatAlertTime(isoStr: string): string {
 }
 
 function refreshAll() {
+  if (!authStore.isAuthenticated) return;
   store.fetchServers();
   store.fetchAlerts();
 }
 
-onMounted(() => {
+function startPolling() {
+  stopPolling();
   refreshAll();
-  // Poll metrics and alerts every 15 seconds
   pollTimer = setInterval(refreshAll, 15000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// Watch authentication status changes
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+});
+
+onMounted(async () => {
+  const isAuthed = await authStore.fetchMe();
+  if (isAuthed) {
+    startPolling();
+  }
 });
 
 onUnmounted(() => {
-  clearInterval(pollTimer);
+  stopPolling();
 });
 </script>
 
@@ -546,5 +616,64 @@ onUnmounted(() => {
   background: rgba(239, 68, 68, 0.1);
   color: #f87171;
   border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* User Profile Navbar Styling */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.user-nav-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-nav-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.logout-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  color: #fca5a5;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.logout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

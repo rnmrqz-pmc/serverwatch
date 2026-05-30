@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Server;
 use App\Services\PrometheusService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
 
 class ServerController extends Controller
 {
@@ -12,10 +15,8 @@ class ServerController extends Controller
 
     public function index(): JsonResponse
     {
-        $configuredServers = config('monitoring.servers', []);
-
-        $servers = collect($configuredServers)->map(function ($server) {
-            $instance = $server['ip'];
+        $servers = Server::all()->map(function ($server) {
+            $instance = $server->ip;
             $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
 
             // Query current 'up' metric to find status
@@ -42,10 +43,11 @@ class ServerController extends Controller
             }
 
             return [
-                'name'       => $server['name'],
-                'instance'   => $server['ip'],
-                'role'       => $server['role'],
-                'env'        => $server['env'],
+                'id'         => $server->id,
+                'name'       => $server->name,
+                'instance'   => $server->ip,
+                'role'       => $server->role,
+                'env'        => $server->env,
                 'status'     => $isUp ? 'up' : 'down',
                 'uptime_pct' => $uptimePct,
                 'metrics'    => $metrics ?: null,
@@ -55,15 +57,23 @@ class ServerController extends Controller
         return response()->json($servers);
     }
 
-    public function show(string $instance): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $configuredServers = config('monitoring.servers', []);
-        $server = collect($configuredServers)->firstWhere('ip', $instance);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'ip'   => 'required|string|max:255|unique:servers,ip',
+            'role' => 'required|string|max:255',
+            'env'  => 'required|string|in:production,staging,development',
+        ]);
 
-        if (!$server) {
-            return response()->json(['message' => 'Server not found'], 404);
-        }
+        $server = Server::create($validated);
 
+        return response()->json($server, 201);
+    }
+
+    public function show(Server $server): JsonResponse
+    {
+        $instance = $server->ip;
         $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
         $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
         $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
@@ -74,12 +84,40 @@ class ServerController extends Controller
         }
 
         return response()->json([
-            'name'     => $server['name'],
-            'instance' => $server['ip'],
-            'role'     => $server['role'],
-            'env'      => $server['env'],
+            'id'       => $server->id,
+            'name'     => $server->name,
+            'instance' => $server->ip,
+            'role'     => $server->role,
+            'env'      => $server->env,
             'status'   => $isUp ? 'up' : 'down',
             'metrics'  => $metrics,
         ]);
+    }
+
+    public function update(Request $request, Server $server): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'ip'   => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('servers')->ignore($server->id),
+            ],
+            'role' => 'sometimes|required|string|max:255',
+            'env'  => 'sometimes|required|string|in:production,staging,development',
+        ]);
+
+        $server->update($validated);
+
+        return response()->json($server);
+    }
+
+    public function destroy(Server $server): JsonResponse
+    {
+        $server->delete();
+
+        return response()->json(['message' => 'Server deleted successfully']);
     }
 }

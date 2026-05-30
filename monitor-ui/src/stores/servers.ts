@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Server, Alert } from '../types';
+import { apiFetch } from '../utils/api';
 
 export const useServersStore = defineStore('servers', () => {
   const servers = ref<Server[]>([]);
@@ -8,8 +9,6 @@ export const useServersStore = defineStore('servers', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const lastSync = ref<Date | null>(null);
-
-  const apiBase = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '/api/v1')).replace(/\/$/, '');
 
   const onlineCount = computed(() => servers.value.filter(s => s.status === 'up').length);
   const degradedCount = computed(() => servers.value.filter(s => s.status === 'degraded').length);
@@ -24,7 +23,7 @@ export const useServersStore = defineStore('servers', () => {
     loading.value = true;
     error.value = null;
     try {
-      const res = await fetch(`${apiBase}/servers`);
+      const res = await apiFetch('/servers');
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       servers.value = await res.json();
       lastSync.value = new Date();
@@ -38,7 +37,7 @@ export const useServersStore = defineStore('servers', () => {
 
   async function fetchAlerts() {
     try {
-      const res = await fetch(`${apiBase}/alerts`);
+      const res = await apiFetch('/alerts');
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       alerts.value = await res.json();
     } catch (e) {
