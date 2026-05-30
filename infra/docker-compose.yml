@@ -8,6 +8,7 @@ volumes:
   prometheus_data: {}
   grafana_data: {}
   uptime_kuma_data: {}
+  mariadb_data: {}
 
 services:
   prometheus:
@@ -62,7 +63,7 @@ services:
       - "3001:3001"
     networks: [monitor]
 
-  # Mock target for local scraping
+  # ── Mock target: Node Exporter ──────────────────────────────────────────────
   node-exporter:
     image: prom/node-exporter:v1.8.1
     container_name: node-exporter
@@ -70,3 +71,32 @@ services:
     ports:
       - "9100:9100"
     networks: [monitor]
+
+  # ── Mock target: MariaDB database ─────────────────────────────────────────
+  mariadb:
+    image: mariadb:11.4
+    container_name: mariadb-mock
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root_pass
+      MARIADB_USER: monitor
+      MARIADB_PASSWORD: monitor_pass
+      MARIADB_DATABASE: appdb
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks: [monitor]
+
+  # ── Mock target: mysqld_exporter (scrapes the mariadb container) ────────────
+  mysqld-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysqld-exporter
+    restart: unless-stopped
+    command:
+      - '--config.my-cnf=/etc/mysqld-exporter/.my.cnf'
+    volumes:
+      - ./mysqld-exporter/.my.cnf:/etc/mysqld-exporter/.my.cnf:ro
+    ports:
+      - "9104:9104"
+    networks: [monitor]
+    depends_on:
+      - mariadb

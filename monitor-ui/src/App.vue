@@ -97,7 +97,26 @@
             </span>
             <div class="stat-indicator" :class="activeAlerts.length > 0 ? 'red' : 'gray'"></div>
           </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Total CPU Cores</span>
+            <span class="stat-value text-indigo">{{ store.totalCpuCores }}</span>
+            <div class="stat-indicator indigo"></div>
+          </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Total RAM</span>
+            <span class="stat-value text-cyan">{{ store.totalRamGb }} <small class="stat-unit">GB</small></span>
+            <div class="stat-indicator cyan"></div>
+          </div>
+
+          <div class="glass-card stat-card">
+            <span class="stat-label">Total Disk</span>
+            <span class="stat-value text-violet">{{ store.totalDiskGb }} <small class="stat-unit">GB</small></span>
+            <div class="stat-indicator violet"></div>
+          </div>
         </section>
+
 
         <!-- Firing Alerts Panel (Show if any alerts are active, hidden on Admin tabs) -->
         <section class="alerts-section glass-card" v-if="activeAlerts.length > 0 && currentTab !== 'users' && currentTab !== 'servers'">
@@ -397,12 +416,18 @@ onUnmounted(() => {
 /* Stats Dashboard styles */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 16px;
   margin-bottom: 32px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1280px) {
+  .stats-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
   .stats-row {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -450,10 +475,22 @@ onUnmounted(() => {
 .stat-indicator.amber { background: var(--status-degraded); }
 .stat-indicator.red { background: var(--status-down); }
 .stat-indicator.gray { background: var(--status-unknown); }
+.stat-indicator.indigo { background: #6366f1; }
+.stat-indicator.cyan { background: #06b6d4; }
+.stat-indicator.violet { background: #a855f7; }
 
 .text-green { color: var(--status-up); }
 .text-amber { color: var(--status-degraded); }
 .text-red { color: var(--status-down); }
+.text-indigo { color: #818cf8; }
+.text-cyan { color: #22d3ee; }
+.text-violet { color: #c084fc; }
+
+.stat-unit {
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
 
 /* Firing Alerts Panel */
 .alerts-section {

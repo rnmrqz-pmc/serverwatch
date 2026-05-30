@@ -1,5 +1,15 @@
 export type ServerStatus = 'up' | 'down' | 'degraded' | 'unknown';
 export type UptimeBarStatus = 'up' | 'down' | 'degraded' | 'no-data';
+export type DbType = 'postgresql' | 'mysql' | 'mariadb';
+export type DbHealth = 'healthy' | 'degraded' | 'down';
+
+export interface DatabaseInfo {
+  type: DbType;
+  health: DbHealth;
+  size_bytes: number;
+  connections: number;
+  version: string;
+}
 
 export interface Server {
   name: string;
@@ -16,6 +26,7 @@ export interface Server {
 export interface ServerMetrics {
   instance: string;
   cpu: number;
+  cpu_cores: number;
   memory: {
     total: number;
     used: number;
@@ -28,6 +39,7 @@ export interface ServerMetrics {
   };
   uptime: number;
   load: number;
+  databases: DatabaseInfo[];
 }
 
 export interface UptimeDay {

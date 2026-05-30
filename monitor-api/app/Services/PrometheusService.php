@@ -40,11 +40,13 @@ class PrometheusService
 
         return Cache::remember("metrics:{$prometheusInstance}", 10, function () use ($prometheusInstance) {
             return [
-                'cpu'    => $this->getCpu($prometheusInstance),
-                'memory' => $this->getMemory($prometheusInstance),
-                'disk'   => $this->getDisk($prometheusInstance),
-                'uptime' => $this->getUptime($prometheusInstance),
-                'load'   => $this->getLoad($prometheusInstance),
+                'cpu'       => $this->getCpu($prometheusInstance),
+                'cpu_cores' => $this->getCpuCores($prometheusInstance),
+                'memory'    => $this->getMemory($prometheusInstance),
+                'disk'      => $this->getDisk($prometheusInstance),
+                'uptime'    => $this->getUptime($prometheusInstance),
+                'load'      => $this->getLoad($prometheusInstance),
+                'databases' => $this->getDatabases($prometheusInstance),
             ];
         });
     }
@@ -55,6 +57,15 @@ class PrometheusService
             "100 - (avg by(instance)(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"{$instance}\"}[5m])) * 100)"
         );
         return round((float)($result[0]['value'][1] ?? 0), 2);
+    }
+
+    private function getCpuCores(string $instance): int
+    {
+        // Count distinct CPUs by counting unique (cpu, mode=idle) time series
+        $result = $this->query(
+            "count(node_cpu_seconds_total{mode=\"idle\",instance=\"{$instance}\"})"
+        );
+        return (int)($result[0]['value'][1] ?? 0);
     }
 
     private function getMemory(string $instance): array
@@ -104,5 +115,155 @@ class PrometheusService
     {
         $result = $this->query("node_load1{instance=\"{$instance}\"}");
         return round((float)($result[0]['value'][1] ?? 0), 2);
+    }
+
+    // ─── Database Detection ───────────────────────────────────────────────────
+
+    /**
+     * Detect databases running on this server.
+     *
+     * Strategy (tried in order):
+     *   1. Direct match  — query pg_up/mysql_up where instance = "<ip>:9187|9104"
+     *      Works for production servers where the DB exporter runs on the same host.
+     *   2. Global discovery — fetch ALL pg_up / mysql_up results from Prometheus
+     *      and associate the first unmatched exporter with this server when the
+     *      server is identified by a Docker service hostname (e.g. "node-exporter").
+     *      This handles the dev stack where postgres-exporter is a separate container.
+     */
+    private function getDatabases(string $instance): array
+    {
+        $ip = preg_replace('/:\d+$/', '', $instance); // strip :9100
+        $isIp = filter_var($ip, FILTER_VALIDATE_IP) !== false;
+
+        $databases = [];
+
+        // ── 1. Direct match (IP-based production hosts) ───────────────────────
+        if ($isIp) {
+            $pgInstance = "{$ip}:9187";
+            $pgUp = $this->query("pg_up{instance=\"{$pgInstance}\"}");
+            if (!empty($pgUp)) {
+                $up = (int)($pgUp[0]['value'][1] ?? 0);
+                $databases[] = [
+                    'type'        => 'postgresql',
+                    'health'      => $up === 1 ? 'healthy' : 'down',
+                    'size_bytes'  => $this->getPostgresSize($pgInstance),
+                    'connections' => $this->getPostgresConnections($pgInstance),
+                    'version'     => $this->getPostgresVersion($pgInstance),
+                ];
+            }
+
+            $myInstance = "{$ip}:9104";
+            $myUp = $this->query("mysql_up{instance=\"{$myInstance}\"}");
+            if (!empty($myUp)) {
+                $up = (int)($myUp[0]['value'][1] ?? 0);
+                $databases[] = [
+                    'type'        => $this->detectMysqlFlavour($myInstance),
+                    'health'      => $up === 1 ? 'healthy' : 'down',
+                    'size_bytes'  => $this->getMysqlSize($myInstance),
+                    'connections' => $this->getMysqlConnections($myInstance),
+                    'version'     => $this->getMysqlVersion($myInstance),
+                ];
+            }
+
+            return $databases;
+        }
+
+        // ── 2. Global discovery (Docker hostname-based / dev stack) ───────────
+        // Fetch every pg_up result across the entire Prometheus environment.
+        $allPg = $this->query('pg_up');
+        foreach ($allPg as $result) {
+            $pgInstance = $result['metric']['instance'] ?? '';
+            $up = (int)($result['value'][1] ?? 0);
+            $databases[] = [
+                'type'        => 'postgresql',
+                'health'      => $up === 1 ? 'healthy' : 'down',
+                'size_bytes'  => $this->getPostgresSize($pgInstance),
+                'connections' => $this->getPostgresConnections($pgInstance),
+                'version'     => $this->getPostgresVersion($pgInstance),
+            ];
+        }
+
+        $allMy = $this->query('mysql_up');
+        foreach ($allMy as $result) {
+            $myInstance = $result['metric']['instance'] ?? '';
+            $up = (int)($result['value'][1] ?? 0);
+            $databases[] = [
+                'type'        => $this->detectMysqlFlavour($myInstance),
+                'health'      => $up === 1 ? 'healthy' : 'down',
+                'size_bytes'  => $this->getMysqlSize($myInstance),
+                'connections' => $this->getMysqlConnections($myInstance),
+                'version'     => $this->getMysqlVersion($myInstance),
+            ];
+        }
+
+        return $databases;
+    }
+
+    // ── PostgreSQL helpers ────────────────────────────────────────────────────
+
+    private function getPostgresSize(string $pgInstance): int
+    {
+        // Sum sizes of all user databases (excludes template0/template1)
+        $result = $this->query(
+            "sum(pg_database_size_bytes{instance=\"{$pgInstance}\",datname!~\"template.*\"})"
+        );
+        return (int)($result[0]['value'][1] ?? 0);
+    }
+
+    private function getPostgresConnections(string $pgInstance): int
+    {
+        $result = $this->query(
+            "sum(pg_stat_activity_count{instance=\"{$pgInstance}\"})"
+        );
+        return (int)($result[0]['value'][1] ?? 0);
+    }
+
+    private function getPostgresVersion(string $pgInstance): string
+    {
+        // pg_static exposes a 'short_version' label on the metric
+        $result = $this->query("pg_static{instance=\"{$pgInstance}\"}");
+        return $result[0]['metric']['short_version'] ?? '';
+    }
+
+    // ── MySQL / MariaDB helpers ───────────────────────────────────────────────
+
+    /**
+     * Distinguish MariaDB from vanilla MySQL via the version_comment global variable.
+     * mysqld_exporter exposes mysql_version_info with a 'version' label.
+     */
+    private function detectMysqlFlavour(string $myInstance): string
+    {
+        $result = $this->query("mysql_version_info{instance=\"{$myInstance}\"}");
+        $version = strtolower($result[0]['metric']['version'] ?? '');
+        return str_contains($version, 'mariadb') ? 'mariadb' : 'mysql';
+    }
+
+    private function getMysqlSize(string $myInstance): int
+    {
+        // Sum data_length + index_length across all user databases
+        $result = $this->query(
+            "sum(mysql_info_schema_table_size_bytes{instance=\"{$myInstance}\",table_schema!~\"information_schema|performance_schema|mysql|sys\"})"
+        );
+        // Fallback: if the above metric isn't present, try the simpler global status
+        if (empty($result)) {
+            $result = $this->query(
+                "mysql_global_status_innodb_data_reads{instance=\"{$myInstance}\"}"
+            );
+        }
+        return (int)($result[0]['value'][1] ?? 0);
+    }
+
+    private function getMysqlConnections(string $myInstance): int
+    {
+        $result = $this->query(
+            "mysql_global_status_threads_connected{instance=\"{$myInstance}\"}"
+        );
+        return (int)($result[0]['value'][1] ?? 0);
+    }
+
+    private function getMysqlVersion(string $myInstance): string
+    {
+        $result = $this->query("mysql_version_info{instance=\"{$myInstance}\"}");
+        return $result[0]['metric']['version'] ?? '';
     }
 }

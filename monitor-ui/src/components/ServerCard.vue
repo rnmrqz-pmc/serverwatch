@@ -16,6 +16,22 @@
       <span class="tag-badge ip">{{ server.instance }}</span>
     </div>
 
+    <!-- Hardware Spec Chips -->
+    <div class="spec-chips" v-if="server.metrics">
+      <span class="spec-chip cpu-chip">
+        <span class="spec-icon">⚙</span>
+        {{ server.metrics.cpu_cores }} Cores
+      </span>
+      <span class="spec-chip ram-chip">
+        <span class="spec-icon">🗂</span>
+        {{ ramGb }} GB RAM
+      </span>
+      <span class="spec-chip disk-chip">
+        <span class="spec-icon">💾</span>
+        {{ diskGb }} GB Disk
+      </span>
+    </div>
+
     <!-- Live Hardware Gauges -->
     <div class="metrics-grid" v-if="server.metrics">
       <div class="metric-item">
@@ -54,6 +70,32 @@
       <p class="no-metrics-msg">Server unreachable — no active metrics</p>
     </div>
 
+    <!-- ─── Databases ────────────────────────────────────────────────── -->
+    <div class="databases-section" v-if="server.metrics">
+      <div class="db-section-header">
+        <span class="db-section-title">
+          <span class="db-section-icon">🗃</span>
+          Databases
+        </span>
+        <span class="db-section-count" v-if="hasDatabases">{{ server.metrics.databases.length }} detected</span>
+        <span class="db-section-count db-section-count--none" v-else>None detected</span>
+      </div>
+      <!-- DB badges -->
+      <div class="db-list" v-if="hasDatabases">
+        <DatabaseBadge
+          v-for="(db, i) in server.metrics.databases"
+          :key="i"
+          :db="db"
+          :disk-total="server.metrics.disk.total"
+        />
+      </div>
+      <!-- Empty state -->
+      <div class="db-empty" v-else>
+        <span class="db-empty__icon">🔍</span>
+        <span class="db-empty__text">No database exporters detected on this server</span>
+      </div>
+    </div>
+
     <!-- Uptime Timeline (90 Days) -->
     <div class="uptime-section" v-if="historyData">
       <UptimeBar :server-name="server.name" :history="historyData" :days="90" />
@@ -65,6 +107,7 @@
 import { computed } from 'vue';
 import type { Server, UptimeDay } from '../types';
 import UptimeBar from './UptimeBar.vue';
+import DatabaseBadge from './DatabaseBadge.vue';
 
 const props = defineProps<{
   server: Server;
@@ -80,6 +123,20 @@ const statusLabel = computed(() => {
   };
   return labels[props.server.status] ?? props.server.status;
 });
+
+const ramGb = computed(() => {
+  const bytes = props.server.metrics?.memory.total ?? 0;
+  return (bytes / (1024 ** 3)).toFixed(1);
+});
+
+const diskGb = computed(() => {
+  const bytes = props.server.metrics?.disk.total ?? 0;
+  return (bytes / (1024 ** 3)).toFixed(1);
+});
+
+const hasDatabases = computed(() =>
+  (props.server.metrics?.databases?.length ?? 0) > 0
+);
 </script>
 
 <style scoped>
@@ -129,6 +186,47 @@ const statusLabel = computed(() => {
 .tags-row {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Hardware Spec Chips */
+.spec-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spec-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+.cpu-chip {
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.ram-chip {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.disk-chip {
+  background: rgba(6, 182, 212, 0.1);
+  color: #67e8f9;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.spec-icon {
+  font-size: 0.75rem;
 }
 
 .tag-badge {
@@ -231,5 +329,77 @@ const statusLabel = computed(() => {
 .uptime-section {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding-top: 16px;
+}
+
+/* ── Database section ───────────────────────────────────────────────────── */
+.databases-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.db-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.db-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.db-section-icon {
+  font-size: 0.9rem;
+}
+
+.db-section-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.db-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.db-section-count--none {
+  color: #334155;
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.db-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.db-empty__icon {
+  font-size: 0.9rem;
+  opacity: 0.4;
+}
+
+.db-empty__text {
+  font-size: 0.72rem;
+  color: #334155;
+  font-weight: 500;
 }
 </style>

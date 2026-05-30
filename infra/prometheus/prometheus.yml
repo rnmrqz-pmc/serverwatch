@@ -13,16 +13,65 @@ rule_files:
   - "/etc/prometheus/alerts.yml"
 
 scrape_configs:
-  # System metrics from target servers
-  - job_name: 'node'
+
+  # Mock / local node-exporter (dev/testing)
+  - job_name: 'node-mock'
     static_configs:
       - targets:
           - 'node-exporter:9100'
         labels:
           env: 'production'
+
+  # Mock mysqld_exporter — scrapes the mariadb-mock container
+  - job_name: 'mysql-mock'
+    static_configs:
       - targets:
-          - '172.22.2.174:9100'
-          - '172.22.2.136:9100'
+          - 'mysqld-exporter:9104'
+        labels:
+          env: 'production'
+
+  # Production web nodes — Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - '172.22.2.171:9100'
+          - '172.22.2.172:9100'
+          - '172.22.2.131:9100'
+          - '172.22.2.132:9100'
+          - '172.22.2.151:9100'
+          - '172.22.2.152:9100'
+          - '172.22.2.141:9100'
+          - '172.22.2.142:9100'
+        labels:
+          env: 'production'
+
+  # PostgreSQL exporter targets (if postgres_exporter is installed on any node)
+  - job_name: 'postgres'
+    static_configs:
+      - targets:
+          - '172.22.2.171:9187'
+          - '172.22.2.172:9187'
+          - '172.22.2.131:9187'
+          - '172.22.2.132:9187'
+          - '172.22.2.151:9187'
+          - '172.22.2.152:9187'
+          - '172.22.2.141:9187'
+          - '172.22.2.142:9187'
+        labels:
+          env: 'production'
+
+  # MySQL / MariaDB exporter targets (if mysqld_exporter is installed on any node)
+  - job_name: 'mysql'
+    static_configs:
+      - targets:
+          - '172.22.2.171:9104'
+          - '172.22.2.172:9104'
+          - '172.22.2.131:9104'
+          - '172.22.2.132:9104'
+          - '172.22.2.151:9104'
+          - '172.22.2.152:9104'
+          - '172.22.2.141:9104'
+          - '172.22.2.142:9104'
         labels:
           env: 'production'
 

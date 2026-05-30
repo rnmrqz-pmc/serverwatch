@@ -19,6 +19,23 @@ export const useServersStore = defineStore('servers', () => {
     return parseFloat((servers.value.reduce((acc, s) => acc + s.uptime_pct, 0) / servers.value.length).toFixed(2));
   });
 
+  // Aggregate hardware specs across all servers that have metrics
+  const totalCpuCores = computed(() =>
+    servers.value.reduce((acc, s) => acc + (s.metrics?.cpu_cores ?? 0), 0)
+  );
+
+  const totalRamGb = computed(() =>
+    parseFloat(
+      (servers.value.reduce((acc, s) => acc + (s.metrics?.memory.total ?? 0), 0) / (1024 ** 3)).toFixed(1)
+    )
+  );
+
+  const totalDiskGb = computed(() =>
+    parseFloat(
+      (servers.value.reduce((acc, s) => acc + (s.metrics?.disk.total ?? 0), 0) / (1024 ** 3)).toFixed(1)
+    )
+  );
+
   async function fetchServers() {
     loading.value = true;
     error.value = null;
@@ -54,7 +71,10 @@ export const useServersStore = defineStore('servers', () => {
     onlineCount, 
     degradedCount,
     offlineCount, 
-    avgUptime, 
+    avgUptime,
+    totalCpuCores,
+    totalRamGb,
+    totalDiskGb,
     fetchServers,
     fetchAlerts
   };
