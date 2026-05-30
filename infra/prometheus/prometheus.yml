@@ -47,7 +47,7 @@ scrape_configs:
   # MySQL / MariaDB exporter targets (if mysqld_exporter is installed on any node)
   - job_name: 'mysql'
     http_sd_configs:
-      - url: 'http://host.docker.internal:8000/api/prometheus/targets/mysql'
+      - url: 'http://172.22.2.139/api/prometheus/targets/mysql'
         refresh_interval: 30s
 
   # Prometheus self-monitoring
