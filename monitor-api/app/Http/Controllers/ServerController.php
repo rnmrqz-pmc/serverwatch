@@ -19,9 +19,12 @@ class ServerController extends Controller
             $instance = $server->ip;
             $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
 
-            // Query current 'up' metric to find status
-            $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
-            $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
+            try {
+                $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+                $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
+            } catch (\Exception $e) {
+                $isUp = false;
+            }
 
             // Fetch metrics
             $metrics = [];
@@ -75,8 +78,12 @@ class ServerController extends Controller
     {
         $instance = $server->ip;
         $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
-        $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
-        $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
+        try {
+            $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+            $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
+        } catch (\Exception $e) {
+            $isUp = false;
+        }
 
         $metrics = [];
         if ($isUp) {

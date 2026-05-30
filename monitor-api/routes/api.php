@@ -2,11 +2,14 @@
 
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\MetricsController;
+use App\Http\Controllers\PrometheusTargetController;
 use App\Http\Controllers\UptimeController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/prometheus/targets/{exporter}', [PrometheusTargetController::class, 'index']);
 
 Route::prefix('v1')->group(function () {
     // Public routes (Auth)
