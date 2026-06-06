@@ -19,7 +19,6 @@
             :class="{ active: currentTab === 'dashboard' }"
             @click="currentTab = 'dashboard'"
           >
-            <span class="nav-icon">📊</span>
             <span class="nav-label">Dashboard</span>
           </button>
           <button 
@@ -27,7 +26,6 @@
             :class="{ active: currentTab === 'uptime' }"
             @click="currentTab = 'uptime'"
           >
-            <span class="nav-icon">📈</span>
             <span class="nav-label">Uptime History</span>
           </button>
           <button 
@@ -35,7 +33,6 @@
             :class="{ active: currentTab === 'users' }"
             @click="currentTab = 'users'"
           >
-            <span class="nav-icon">👥</span>
             <span class="nav-label">User Management</span>
           </button>
           <button 
@@ -43,7 +40,6 @@
             :class="{ active: currentTab === 'servers' }"
             @click="currentTab = 'servers'"
           >
-            <span class="nav-icon">⚙️</span>
             <span class="nav-label">Server Settings</span>
           </button>
           <button 
@@ -51,7 +47,6 @@
             :class="{ active: currentTab === 'maintenance' }"
             @click="currentTab = 'maintenance'"
           >
-            <span class="nav-icon">🛠️</span>
             <span class="nav-label">Maintenance</span>
           </button>
         </nav>

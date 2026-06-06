@@ -16,24 +16,15 @@
       <span class="tag-badge ip">{{ server.instance }}</span>
     </div>
 
-    <!-- Hardware Spec Chips -->
-    <div class="spec-chips" v-if="server.metrics">
-      <span class="spec-chip cpu-chip">
-        {{ server.metrics.cpu_cores }} Cores
-      </span>
-      <span class="spec-chip ram-chip">
-        {{ ramGb }} GB RAM
-      </span>
-      <span class="spec-chip disk-chip">
-        {{ diskGb }} GB Disk
-      </span>
-    </div>
-
     <!-- Live Hardware Gauges -->
     <div class="metrics-grid" v-if="server.metrics">
       <div class="metric-item">
         <div class="metric-meta">
-          <span>CPU</span>
+          <span>CPU
+          <span class="spec-chip cpu-chip">
+            {{ server.metrics.cpu_cores }} Cores
+          </span>
+          </span>
           <span class="metric-val">{{ server.metrics.cpu }}%</span>
         </div>
         <div class="progress-bar-container">
@@ -43,7 +34,11 @@
 
       <div class="metric-item">
         <div class="metric-meta">
-          <span>RAM</span>
+          <span>RAM 
+          <span class="spec-chip ram-chip">
+            {{ ramGb }} GB RAM
+          </span>
+          </span>
           <span class="metric-val">{{ server.metrics.memory.percent }}%</span>
         </div>
         <div class="progress-bar-container">
@@ -53,7 +48,12 @@
 
       <div class="metric-item">
         <div class="metric-meta">
-          <span>Disk</span>
+          <span>Disk
+          <span class="spec-chip disk-chip">
+            {{ diskGb }} GB
+          </span>
+          </span>
+          
           <span class="metric-val">{{ server.metrics.disk.percent }}%</span>
         </div>
         <div class="progress-bar-container">
@@ -71,7 +71,6 @@
     <div class="databases-section" v-if="server.metrics">
       <div class="db-section-header">
         <span class="db-section-title">
-          <span class="db-section-icon">🗃</span>
           Databases
         </span>
         <span class="db-section-count" v-if="hasDatabases">{{ server.metrics.databases.length }} detected</span>
@@ -212,8 +211,7 @@ const hasDatabases = computed(() =>
   gap: 5px;
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
+  margin: 0px 4px;
   letter-spacing: 0.02em;
 }
 
