@@ -665,8 +665,8 @@ onMounted(() => {
 }
 
 .env-badge.production {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: rgba(105, 239, 68, 0.15);
+  color: #23b805ff;
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
