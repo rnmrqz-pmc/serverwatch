@@ -2,42 +2,44 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Server;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        DB::table('users')->insertOrIgnore([
+            [
+                'name' => 'Test User',
+                'email' => 'test@example.com',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'admin',
+                'email' => 'ron-ron.marquez@powermaccenter.com',
+                'password' => Hash::make('Admin@123'),
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
         ]);
 
-        User::factory()->create([
-            'name' => 'admin',
-            'email' => 'ron-ron.marquez@powermaccenter.com',
-            'password' => \Illuminate\Support\Facades\Hash::make('Admin@123'),
-        ]);
-
-        // Seed servers from config
         $configuredServers = config('monitoring.servers', []);
+
         foreach ($configuredServers as $srv) {
-            Server::firstOrCreate(
+            DB::table('servers')->updateOrInsert(
                 ['ip' => $srv['ip']],
                 [
                     'name' => $srv['name'],
                     'role' => $srv['role'],
                     'env' => $srv['env'],
+                    'updated_at' => now(),
+                    'created_at' => now(),
                 ]
             );
         }
