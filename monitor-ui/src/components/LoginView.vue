@@ -3,9 +3,8 @@
     <div class="login-glow"></div>
     <div class="glass-card login-card">
       <div class="login-header">
-        <div class="logo-icon"></div>
+        <img :src="bdLogo" alt="BD Logo" class="login-logo-img" />
         <h2>Welcome to BIT DevOps ServerWatcher</h2>
-        <p>Sign in to monitor system status and manage users</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="login-form">
@@ -55,6 +54,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import bdLogo from '../assets/BD.png';
 
 const authStore = useAuthStore();
 const email = ref('');
@@ -120,26 +120,12 @@ async function handleSubmit() {
   margin-bottom: 32px;
 }
 
-.logo-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  border-radius: 12px;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
-  position: relative;
+.login-logo-img {
+  width: 132px;
+  height: 132px;
+  object-fit: contain;
+  border-radius: 8px;
   margin-bottom: 16px;
-}
-
-.logo-icon::after {
-  content: '';
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 24px;
-  height: 24px;
-  background: #fff;
-  border-radius: 6px;
-  transform: rotate(45deg);
 }
 
 .login-header h2 {

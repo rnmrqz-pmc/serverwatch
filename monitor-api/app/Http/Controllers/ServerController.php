@@ -175,6 +175,15 @@ class ServerController extends Controller
                 'ssh_user'            => $server->ssh_user,
                 'ssh_port'            => $server->ssh_port ?? 22,
                 'has_ssh_credentials' => !empty($server->ssh_user) && !empty($server->ssh_password),
+                'cpu_threshold_info'      => $server->cpu_threshold_info,
+                'cpu_threshold_warning'   => $server->cpu_threshold_warning,
+                'cpu_threshold_critical'  => $server->cpu_threshold_critical,
+                'ram_threshold_info'      => $server->ram_threshold_info,
+                'ram_threshold_warning'   => $server->ram_threshold_warning,
+                'ram_threshold_critical'  => $server->ram_threshold_critical,
+                'disk_threshold_info'     => $server->disk_threshold_info,
+                'disk_threshold_warning'  => $server->disk_threshold_warning,
+                'disk_threshold_critical' => $server->disk_threshold_critical,
             ];
         });
 
@@ -353,6 +362,15 @@ class ServerController extends Controller
             'ssh_user'            => $server->ssh_user,
             'ssh_port'            => $server->ssh_port ?? 22,
             'has_ssh_credentials' => !empty($server->ssh_user) && !empty($server->ssh_password),
+            'cpu_threshold_info'      => $server->cpu_threshold_info,
+            'cpu_threshold_warning'   => $server->cpu_threshold_warning,
+            'cpu_threshold_critical'  => $server->cpu_threshold_critical,
+            'ram_threshold_info'      => $server->ram_threshold_info,
+            'ram_threshold_warning'   => $server->ram_threshold_warning,
+            'ram_threshold_critical'  => $server->ram_threshold_critical,
+            'disk_threshold_info'     => $server->disk_threshold_info,
+            'disk_threshold_warning'  => $server->disk_threshold_warning,
+            'disk_threshold_critical' => $server->disk_threshold_critical,
         ]);
     }
 
@@ -484,6 +502,47 @@ class ServerController extends Controller
             'ssh_user'            => $server->fresh()->ssh_user,
             'ssh_port'            => $server->fresh()->ssh_port ?? 22,
             'has_ssh_credentials' => !empty($server->fresh()->ssh_user) && !empty($server->fresh()->ssh_password),
+        ]);
+    }
+
+    /**
+     * Update the threshold configurations for a server.
+     *
+     * PUT /v1/servers/{server}/thresholds
+     */
+    public function updateThresholds(Request $request, Server $server): JsonResponse
+    {
+        $validated = $request->validate([
+            'cpu_threshold_info'      => 'required|integer|min:1|max:100',
+            'cpu_threshold_warning'   => 'required|integer|min:1|max:100',
+            'cpu_threshold_critical'  => 'required|integer|min:1|max:100',
+            'ram_threshold_info'      => 'required|integer|min:1|max:100',
+            'ram_threshold_warning'   => 'required|integer|min:1|max:100',
+            'ram_threshold_critical'  => 'required|integer|min:1|max:100',
+            'disk_threshold_info'     => 'required|integer|min:1|max:100',
+            'disk_threshold_warning'  => 'required|integer|min:1|max:100',
+            'disk_threshold_critical' => 'required|integer|min:1|max:100',
+        ]);
+
+        // Validate threshold ordering: info <= warning <= critical
+        if ($validated['cpu_threshold_info'] > $validated['cpu_threshold_warning'] || 
+            $validated['cpu_threshold_warning'] > $validated['cpu_threshold_critical']) {
+            return response()->json(['message' => 'CPU thresholds must satisfy: Info <= Warning <= Critical.'], 422);
+        }
+        if ($validated['ram_threshold_info'] > $validated['ram_threshold_warning'] || 
+            $validated['ram_threshold_warning'] > $validated['ram_threshold_critical']) {
+            return response()->json(['message' => 'RAM thresholds must satisfy: Info <= Warning <= Critical.'], 422);
+        }
+        if ($validated['disk_threshold_info'] > $validated['disk_threshold_warning'] || 
+            $validated['disk_threshold_warning'] > $validated['disk_threshold_critical']) {
+            return response()->json(['message' => 'Disk thresholds must satisfy: Info <= Warning <= Critical.'], 422);
+        }
+
+        $server->update($validated);
+
+        return response()->json([
+            'message' => 'Alert thresholds updated successfully.',
+            'server'  => $server->fresh(),
         ]);
     }
 }

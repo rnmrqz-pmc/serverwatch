@@ -34,6 +34,10 @@ class AlertController extends Controller
                 'resolved_at' => $alert['endsAt'] ?? null,
             ]);
 
+            // Merge cache-stored dynamic threshold alerts
+            $thresholdAlerts = \Illuminate\Support\Facades\Cache::get('active_threshold_breaches', []);
+            $formatted = $formatted->concat($thresholdAlerts);
+
             // Add mock active alerts if Alertmanager returns empty so the UI has something interesting to show
             if ($formatted->isEmpty()) {
                 $formatted = collect([

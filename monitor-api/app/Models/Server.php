@@ -23,6 +23,15 @@ class Server extends Model
         'ssh_user',
         'ssh_port',
         'ssh_password',
+        'cpu_threshold_info',
+        'cpu_threshold_warning',
+        'cpu_threshold_critical',
+        'ram_threshold_info',
+        'ram_threshold_warning',
+        'ram_threshold_critical',
+        'disk_threshold_info',
+        'disk_threshold_warning',
+        'disk_threshold_critical',
     ];
 
     /**
@@ -31,10 +40,19 @@ class Server extends Model
      * The value is NEVER serialised to JSON responses (see $hidden).
      */
     protected $casts = [
-        'db_port'      => 'integer',
-        'db_password'  => 'encrypted',
-        'ssh_port'     => 'integer',
-        'ssh_password' => 'encrypted',
+        'db_port'                 => 'integer',
+        'db_password'             => 'encrypted',
+        'ssh_port'                => 'integer',
+        'ssh_password'            => 'encrypted',
+        'cpu_threshold_info'      => 'integer',
+        'cpu_threshold_warning'   => 'integer',
+        'cpu_threshold_critical'  => 'integer',
+        'ram_threshold_info'      => 'integer',
+        'ram_threshold_warning'   => 'integer',
+        'ram_threshold_critical'  => 'integer',
+        'disk_threshold_info'     => 'integer',
+        'disk_threshold_warning'  => 'integer',
+        'disk_threshold_critical' => 'integer',
     ];
 
     /**

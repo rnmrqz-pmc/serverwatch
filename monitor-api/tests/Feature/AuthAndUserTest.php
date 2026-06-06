@@ -65,6 +65,13 @@ class AuthAndUserTest extends TestCase
 
     public function test_admin_can_perform_user_management_crud()
     {
+        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+            ->once()
+            ->with(
+                \Mockery::on(fn($content) => str_contains($content, 'created')),
+                \Mockery::on(fn($callback) => true)
+            );
+
         $admin = User::factory()->create();
 
         // 1. List Users
@@ -76,7 +83,6 @@ class AuthAndUserTest extends TestCase
         $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/users', [
             'name' => 'John Doe',
             'email' => 'john@serverwatch.com',
-            'password' => 'newpassword123',
         ]);
         $response->assertStatus(201)
             ->assertJson([
@@ -86,6 +92,7 @@ class AuthAndUserTest extends TestCase
 
         $this->assertDatabaseHas('users', ['email' => 'john@serverwatch.com']);
         $newUser = User::where('email', 'john@serverwatch.com')->first();
+        $this->assertNotEmpty($newUser->password);
 
         // 3. Update User
         $response = $this->actingAs($admin, 'sanctum')->putJson("/api/v1/users/{$newUser->id}", [
@@ -100,6 +107,75 @@ class AuthAndUserTest extends TestCase
         $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/v1/users/{$newUser->id}");
         $response->assertStatus(200);
         $this->assertDatabaseMissing('users', ['email' => 'john@serverwatch.com']);
+    }
+
+    public function test_create_user_rolls_back_if_mail_fails()
+    {
+        $admin = User::factory()->create();
+
+        // Mock Mail to throw exception
+        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+            ->once()
+            ->andThrow(new \Exception('SMTP connection timeout'));
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/users', [
+            'name' => 'Failed User',
+            'email' => 'failed@serverwatch.com',
+        ]);
+
+        $response->assertStatus(500);
+        $this->assertStringContainsString('Failed to send', $response->json()['message']);
+
+        // Verify user was deleted (rolled back)
+        $this->assertDatabaseMissing('users', ['email' => 'failed@serverwatch.com']);
+    }
+
+    public function test_admin_can_reset_user_password()
+    {
+        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+            ->once()
+            ->with(
+                \Mockery::on(fn($content) => str_contains($content, 'reset')),
+                \Mockery::on(fn($callback) => true)
+            );
+
+        $admin = User::factory()->create();
+        $user = User::factory()->create([
+            'email' => 'user@serverwatch.com',
+            'password' => Hash::make('old-password'),
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/users/{$user->id}/reset-password");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['message']);
+
+        // Verify password changed
+        $user->refresh();
+        $this->assertFalse(Hash::check('old-password', $user->password));
+    }
+
+    public function test_password_reset_rolls_back_if_mail_fails()
+    {
+        $admin = User::factory()->create();
+        $user = User::factory()->create([
+            'email' => 'user@serverwatch.com',
+            'password' => Hash::make('old-password'),
+        ]);
+
+        // Mock Mail to throw exception
+        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+            ->once()
+            ->andThrow(new \Exception('SMTP connection timeout'));
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/users/{$user->id}/reset-password");
+
+        $response->assertStatus(500);
+        $this->assertStringContainsString('Failed to send', $response->json()['message']);
+
+        // Verify password is still the old one (rolled back)
+        $user->refresh();
+        $this->assertTrue(Hash::check('old-password', $user->password));
     }
 
     public function test_user_cannot_delete_themselves()

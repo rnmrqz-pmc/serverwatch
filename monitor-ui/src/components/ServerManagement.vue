@@ -96,6 +96,9 @@
                 <button class="action-btn ssh-btn" @click="openSshModal(srv)" title="Configure SSH Credentials">
                   🔑
                 </button>
+                <button class="action-btn alert-btn" @click="openThresholdsModal(srv)" title="Configure Alert Thresholds">
+                  🔔
+                </button>
                 <button class="action-btn delete-btn" @click="confirmDelete(srv)" title="Delete Target">
                   🗑️
                 </button>
@@ -185,6 +188,14 @@
       @saved="onSshCredentialsSaved"
     />
 
+    <!-- Alert Thresholds Modal -->
+    <ThresholdsModal
+      v-if="showThresholdsModal && selectedThresholdsServer"
+      :server="selectedThresholdsServer"
+      @close="closeThresholdsModal"
+      @saved="onThresholdsSaved"
+    />
+
     <!-- Delete Confirmation Modal -->
     <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
       <div class="glass-card modal-card delete-confirm-card">
@@ -209,6 +220,7 @@ import { apiFetch } from '../utils/api';
 import { useServersStore } from '../stores/servers';
 import DatabaseCredentialsModal from './DatabaseCredentialsModal.vue';
 import SshCredentialsModal from './SshCredentialsModal.vue';
+import ThresholdsModal from './ThresholdsModal.vue';
 
 interface ServerNode {
   id: number;
@@ -225,6 +237,15 @@ interface ServerNode {
   ssh_user?: string | null;
   ssh_port?: number | null;
   has_ssh_credentials?: boolean;
+  cpu_threshold_info?: number;
+  cpu_threshold_warning?: number;
+  cpu_threshold_critical?: number;
+  ram_threshold_info?: number;
+  ram_threshold_warning?: number;
+  ram_threshold_critical?: number;
+  disk_threshold_info?: number;
+  disk_threshold_warning?: number;
+  disk_threshold_critical?: number;
 }
 
 const serversStore = useServersStore();
@@ -249,6 +270,10 @@ const selectedDbServer = ref<ServerNode | null>(null);
 const showSshModal = ref(false);
 const selectedSshServer = ref<ServerNode | null>(null);
 
+// Thresholds modal
+const showThresholdsModal = ref(false);
+const selectedThresholdsServer = ref<ServerNode | null>(null);
+
 // Form data
 const form = ref({
   id: 0,
@@ -267,20 +292,29 @@ async function fetchServersList() {
     const data = await res.json();
     // API returns calculated server models with status/metrics, map properties
     servers.value = data.map((srv: any) => ({
-      id:                  srv.id,
-      name:                srv.name,
-      ip:                  srv.instance,
-      role:                srv.role,
-      env:                 srv.env,
-      db_type:             srv.db_type ?? 'none',
-      db_host:             srv.db_host ?? null,
-      db_port:             srv.db_port ?? null,
-      db_user:             srv.db_user ?? null,
-      db_name:             srv.db_name ?? null,
-      has_db_credentials:  srv.has_db_credentials ?? false,
-      ssh_user:            srv.ssh_user ?? null,
-      ssh_port:            srv.ssh_port ?? null,
-      has_ssh_credentials: srv.has_ssh_credentials ?? false,
+      id:                      srv.id,
+      name:                    srv.name,
+      ip:                      srv.instance,
+      role:                    srv.role,
+      env:                     srv.env,
+      db_type:                 srv.db_type ?? 'none',
+      db_host:                 srv.db_host ?? null,
+      db_port:                 srv.db_port ?? null,
+      db_user:                 srv.db_user ?? null,
+      db_name:                 srv.db_name ?? null,
+      has_db_credentials:      srv.has_db_credentials ?? false,
+      ssh_user:                srv.ssh_user ?? null,
+      ssh_port:                srv.ssh_port ?? null,
+      has_ssh_credentials:     srv.has_ssh_credentials ?? false,
+      cpu_threshold_info:      srv.cpu_threshold_info ?? 60,
+      cpu_threshold_warning:   srv.cpu_threshold_warning ?? 70,
+      cpu_threshold_critical:  srv.cpu_threshold_critical ?? 90,
+      ram_threshold_info:      srv.ram_threshold_info ?? 60,
+      ram_threshold_warning:   srv.ram_threshold_warning ?? 70,
+      ram_threshold_critical:  srv.ram_threshold_critical ?? 90,
+      disk_threshold_info:     srv.disk_threshold_info ?? 60,
+      disk_threshold_warning:  srv.disk_threshold_warning ?? 70,
+      disk_threshold_critical: srv.disk_threshold_critical ?? 90,
     }));
   } catch (e) {
     errorMsg.value = 'Failed to load target servers.';
@@ -334,6 +368,23 @@ function closeSshModal() {
 }
 
 function onSshCredentialsSaved() {
+  fetchServersList();
+  serversStore.fetchServers();
+}
+
+// ── Threshold helpers ───────────────────────────────────────────────────
+
+function openThresholdsModal(srv: ServerNode) {
+  selectedThresholdsServer.value = srv;
+  showThresholdsModal.value = true;
+}
+
+function closeThresholdsModal() {
+  showThresholdsModal.value = false;
+  selectedThresholdsServer.value = null;
+}
+
+function onThresholdsSaved() {
   fetchServersList();
   serversStore.fetchServers();
 }
@@ -670,6 +721,11 @@ onMounted(() => {
 .db-btn:hover {
   background: rgba(6, 182, 212, 0.1);
   border-color: rgba(6, 182, 212, 0.3);
+}
+
+.alert-btn:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .delete-btn:hover {

@@ -60,6 +60,14 @@
             </td>
             <td class="actions-col">
               <div class="action-buttons">
+                <button 
+                  class="action-btn reset-btn" 
+                  @click="confirmResetPassword(user)" 
+                  :disabled="authStore.user?.id === user.id"
+                  title="Reset Password"
+                >
+                  🔑
+                </button>
                 <button class="action-btn edit-btn" @click="openEditModal(user)" title="Edit User">
                   ✏️
                 </button>
@@ -109,17 +117,16 @@
             />
           </div>
 
-          <div class="form-group">
+          <div class="form-group" v-if="isEditMode">
             <label for="modal-password">
               Password 
-              <span v-if="isEditMode" class="optional-label">(leave blank to keep current)</span>
+              <span class="optional-label">(leave blank to keep current)</span>
             </label>
             <input 
               type="password" 
               id="modal-password" 
               v-model="form.password" 
               placeholder="••••••••" 
-              :required="!isEditMode"
             />
           </div>
 
@@ -145,6 +152,22 @@
           <button type="button" class="modal-btn-danger" @click="deleteUser" :disabled="submitting">
             <span v-if="submitting" class="spinner-small"></span>
             <span v-else>Confirm Delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset Password Confirmation Modal -->
+    <div v-if="showResetModal" class="modal-overlay" @click.self="closeResetModal">
+      <div class="glass-card modal-card delete-confirm-card">
+        <h3 style="color: #818cf8;">Reset User Password?</h3>
+        <p>Are you sure you want to reset the password for <strong>{{ selectedUser?.name }}</strong> ({{ selectedUser?.email }})? A new random 12-character password will be generated and emailed to them immediately.</p>
+        
+        <div class="modal-actions delete-actions">
+          <button type="button" class="modal-btn-cancel" @click="closeResetModal">Cancel</button>
+          <button type="button" class="modal-btn-submit" @click="resetPassword" :disabled="submitting" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            <span v-if="submitting" class="spinner-small"></span>
+            <span v-else>Confirm Reset</span>
           </button>
         </div>
       </div>
@@ -176,6 +199,7 @@ const errorMsg = ref('');
 const showModal = ref(false);
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
+const showResetModal = ref(false);
 const selectedUser = ref<User | null>(null);
 
 // Form data
@@ -239,6 +263,41 @@ function closeDeleteModal() {
   selectedUser.value = null;
 }
 
+function confirmResetPassword(user: User) {
+  selectedUser.value = user;
+  showResetModal.value = true;
+}
+
+function closeResetModal() {
+  showResetModal.value = false;
+  selectedUser.value = null;
+}
+
+async function resetPassword() {
+  if (!selectedUser.value) return;
+  submitting.value = true;
+  errorMsg.value = '';
+  successMsg.value = '';
+
+  try {
+    const res = await apiFetch(`/users/${selectedUser.value.id}/reset-password`, {
+      method: 'POST',
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to reset password.');
+
+    successMsg.value = data.message || `Successfully reset password for ${selectedUser.value.name}.`;
+    closeResetModal();
+    await fetchUsers();
+  } catch (e) {
+    errorMsg.value = (e as Error).message;
+    closeResetModal();
+  } finally {
+    submitting.value = false;
+  }
+}
+
 async function handleSubmit() {
   submitting.value = true;
   errorMsg.value = '';
@@ -273,7 +332,6 @@ async function handleSubmit() {
         body: JSON.stringify({
           name: form.value.name,
           email: form.value.email,
-          password: form.value.password,
         }),
       });
 
@@ -536,6 +594,11 @@ onMounted(() => {
 .edit-btn:hover:not(:disabled) {
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.3);
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: rgba(129, 140, 248, 0.1);
+  border-color: rgba(129, 140, 248, 0.3);
 }
 
 .delete-btn:hover:not(:disabled) {

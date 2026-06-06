@@ -1,75 +1,87 @@
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'dashboard-layout': authStore.isAuthenticated }">
     <!-- If not authenticated, render Login view -->
     <LoginView v-if="!authStore.isAuthenticated" />
 
     <!-- If authenticated, render full application layout -->
     <template v-else>
       <!-- Navbar -->
-      <header class="navbar">
-        <div class="nav-container">
-          <div class="brand">
-            <div class="logo-icon"></div>
-            <h1>BIT DevOps ServerWatcher</h1>
-          </div>
-          <div class="nav-tabs">
-            <button 
-              class="tab-btn" 
-              :class="{ active: currentTab === 'dashboard' }"
-              @click="currentTab = 'dashboard'"
-            >
-              Dashboard
-            </button>
-            <button 
-              class="tab-btn" 
-              :class="{ active: currentTab === 'uptime' }"
-              @click="currentTab = 'uptime'"
-            >
-              Uptime History
-            </button>
-            <button 
-              class="tab-btn" 
-              :class="{ active: currentTab === 'users' }"
-              @click="currentTab = 'users'"
-            >
-              User Management
-            </button>
-            <button 
-              class="tab-btn" 
-              :class="{ active: currentTab === 'servers' }"
-              @click="currentTab = 'servers'"
-            >
-              Server Settings
-            </button>
-          </div>
-
-          <div class="user-profile">
-            <div class="sync-status" v-if="store.lastSync && currentTab !== 'users' && currentTab !== 'servers'">
-              <span>Synced {{ formattedSyncTime }}</span>
-              <button class="refresh-btn" @click="refreshAll" :disabled="store.loading">
-                <span class="refresh-icon" :class="{ spinning: store.loading }">↻</span>
-              </button>
-            </div>
-            
-            <div class="user-info" v-if="authStore.user">
-              <span class="user-nav-avatar">{{ authStore.user.name.charAt(0).toUpperCase() }}</span>
-              <span class="user-nav-name">{{ authStore.user.name }}</span>
-            </div>
-            <button class="logout-btn" @click="authStore.logout()" :disabled="authStore.loading">
-              Logout
-            </button>
-          </div>
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <img :src="bdLogo" alt="BD Logo" class="brand-logo-img" />
+          <h1 class="brand-title">ServerWatcher</h1>
         </div>
-      </header>
 
-      <main class="container">
+        <nav class="sidebar-nav">
+          <button 
+            class="nav-item" 
+            :class="{ active: currentTab === 'dashboard' }"
+            @click="currentTab = 'dashboard'"
+          >
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button 
+            class="nav-item" 
+            :class="{ active: currentTab === 'uptime' }"
+            @click="currentTab = 'uptime'"
+          >
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Uptime History</span>
+          </button>
+          <button 
+            class="nav-item" 
+            :class="{ active: currentTab === 'users' }"
+            @click="currentTab = 'users'"
+          >
+            <span class="nav-icon">👥</span>
+            <span class="nav-label">User Management</span>
+          </button>
+          <button 
+            class="nav-item" 
+            :class="{ active: currentTab === 'servers' }"
+            @click="currentTab = 'servers'"
+          >
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Server Settings</span>
+          </button>
+          <button 
+            class="nav-item" 
+            :class="{ active: currentTab === 'maintenance' }"
+            @click="currentTab = 'maintenance'"
+          >
+            <span class="nav-icon">🛠️</span>
+            <span class="nav-label">Maintenance</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="sync-status" v-if="store.lastSync && currentTab !== 'users' && currentTab !== 'servers' && currentTab !== 'maintenance'">
+            <span>Synced {{ formattedSyncTime }}</span>
+            <button class="refresh-btn" @click="refreshAll" :disabled="store.loading">
+              <span class="refresh-icon" :class="{ spinning: store.loading }">↻</span>
+            </button>
+          </div>
+          
+          <div class="user-info" v-if="authStore.user">
+            <span class="user-nav-avatar">{{ authStore.user.name.charAt(0).toUpperCase() }}</span>
+            <span class="user-nav-name">{{ authStore.user.name }}</span>
+          </div>
+          <button class="logout-btn" @click="authStore.logout()" :disabled="authStore.loading">
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
         <!-- Error Alert banner -->
         <div class="error-banner" v-if="store.error">
           <p>⚠️ Connection Error: {{ store.error }}. Retrying automatically...</p>
         </div>
 
         <!-- Stats Row (hidden on Admin tabs) -->
-        <section class="stats-row" v-if="currentTab !== 'users' && currentTab !== 'servers'">
+        <section class="stats-row" v-if="currentTab !== 'users' && currentTab !== 'servers' && currentTab !== 'maintenance'">
           <div class="glass-card stat-card">
             <span class="stat-label">Average Uptime</span>
             <span class="stat-value text-green">{{ store.avgUptime }}%</span>
@@ -119,7 +131,7 @@
 
 
         <!-- Firing Alerts Panel (Show if any alerts are active, hidden on Admin tabs) -->
-        <section class="alerts-section glass-card" v-if="activeAlerts.length > 0 && currentTab !== 'users' && currentTab !== 'servers'">
+        <section class="alerts-section glass-card" v-if="activeAlerts.length > 0 && currentTab !== 'users' && currentTab !== 'servers' && currentTab !== 'maintenance'">
           <div class="section-title">
             <span class="pulse-dot down"></span>
             <h2>Active System Incidents</h2>
@@ -187,8 +199,13 @@
         </section>
 
         <!-- Tab Content: Server Settings -->
-        <section v-else class="server-management-view">
+        <section v-else-if="currentTab === 'servers'" class="server-management-view">
           <ServerManagement />
+        </section>
+
+        <!-- Tab Content: Maintenance Settings -->
+        <section v-else class="maintenance-view">
+          <MaintenanceManagement />
         </section>
       </main>
     </template>
@@ -199,15 +216,17 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useServersStore } from './stores/servers';
 import { useAuthStore } from './stores/auth';
+import bdLogo from './assets/BD.png';
 import ServerCard from './components/ServerCard.vue';
 import UptimeBar from './components/UptimeBar.vue';
 import LoginView from './components/LoginView.vue';
 import UserManagement from './components/UserManagement.vue';
 import ServerManagement from './components/ServerManagement.vue';
+import MaintenanceManagement from './components/MaintenanceManagement.vue';
 
 const store = useServersStore();
 const authStore = useAuthStore();
-const currentTab = ref<'dashboard' | 'uptime' | 'users' | 'servers'>('dashboard');
+const currentTab = ref<'dashboard' | 'uptime' | 'users' | 'servers' | 'maintenance'>('dashboard');
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 const activeAlerts = computed(() => {
@@ -280,108 +299,125 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.navbar {
-  background: rgba(11, 15, 25, 0.7);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.app-layout.dashboard-layout {
+  flex-direction: row;
+}
+
+/* Sidebar Navigation Layout */
+.sidebar {
+  width: 260px;
+  height: 100vh;
   position: sticky;
   top: 0;
-  z-index: 100;
-  padding: 16px 24px;
-}
-
-.nav-container {
-  max-width: 1400px;
-  margin: 0 auto;
+  background: rgba(11, 15, 25, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  padding: 24px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 100;
 }
 
-.brand {
+.sidebar-brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.logo-icon {
+.brand-logo-img {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  border-radius: 8px;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
-  position: relative;
+  object-fit: contain;
+  border-radius: 6px;
+  filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.3));
 }
 
-.logo-icon::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 4px;
-  transform: rotate(45deg);
-}
-
-.brand h1 {
-  font-size: 1.5rem;
+.brand-title {
+  font-size: 1.2rem;
   font-weight: 800;
   background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
-.nav-tabs {
+.sidebar-nav {
   display: flex;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  flex-direction: column;
+  gap: 6px;
+  flex-grow: 1;
 }
 
-.tab-btn {
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: #94a3b8;
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
   cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
-.tab-btn:hover {
+.nav-item:hover {
   color: #fff;
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.tab-btn.active {
-  background: rgba(99, 102, 241, 0.15);
+.nav-item.active {
+  background: rgba(99, 102, 241, 0.12);
   color: #818cf8;
   border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.nav-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sync-status {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.75rem;
+  justify-content: space-between;
+  font-size: 0.72rem;
   color: #64748b;
+  padding: 2px 4px;
 }
 
 .refresh-btn {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #94a3b8;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover {
@@ -390,7 +426,7 @@ onUnmounted(() => {
 }
 
 .refresh-icon {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .refresh-icon.spinning {
@@ -400,6 +436,87 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.main-content {
+  flex-grow: 1;
+  min-width: 0;
+  padding: 40px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .app-layout.dashboard-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .sidebar-brand {
+    margin-bottom: 0;
+    padding-bottom: 12px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 4px;
+    gap: 8px;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+  }
+
+  .nav-item {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 14px;
+  }
+
+  .sidebar-footer {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 12px;
+  }
+
+  .sync-status {
+    padding: 0;
+  }
+
+  .user-info {
+    padding: 6px 10px;
+  }
+
+  .logout-btn {
+    width: auto;
+    padding: 8px 16px;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
 }
 
 .error-banner {
@@ -655,20 +772,13 @@ onUnmounted(() => {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-/* User Profile Navbar Styling */
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 .user-info {
   display: flex;
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.03);
-  padding: 4px 12px;
-  border-radius: 20px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -694,13 +804,15 @@ onUnmounted(() => {
 .logout-btn {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 6px;
+  border-radius: 8px;
   color: #fca5a5;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
 }
 
 .logout-btn:hover:not(:disabled) {

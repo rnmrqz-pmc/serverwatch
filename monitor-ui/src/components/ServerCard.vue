@@ -19,15 +19,12 @@
     <!-- Hardware Spec Chips -->
     <div class="spec-chips" v-if="server.metrics">
       <span class="spec-chip cpu-chip">
-        <span class="spec-icon">⚙</span>
         {{ server.metrics.cpu_cores }} Cores
       </span>
       <span class="spec-chip ram-chip">
-        <span class="spec-icon">🗂</span>
         {{ ramGb }} GB RAM
       </span>
       <span class="spec-chip disk-chip">
-        <span class="spec-icon">💾</span>
         {{ diskGb }} GB Disk
       </span>
     </div>
@@ -254,8 +251,8 @@ const hasDatabases = computed(() =>
 }
 
 .tag-badge.production {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  background: rgba(8, 228, 41, 0.15);
+  color: #10ce39ff;
   border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
