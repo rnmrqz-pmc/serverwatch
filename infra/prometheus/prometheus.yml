@@ -35,23 +35,21 @@ scrape_configs:
   # container at host.docker.internal:8000 for HTTP service discovery.
   - job_name: 'node'
     http_sd_configs:
-      - url: 'http://172.22.2.139/api/prometheus/targets/node'
+      - url: 'https://172.22.2.139/api/prometheus/targets/node'
         refresh_interval: 30s
         tls_config:
           insecure_skip_verify: true
 
-  # PostgreSQL exporter targets (if postgres_exporter is installed on any node)
   - job_name: 'postgres'
     http_sd_configs:
-      - url: 'http://172.22.2.139/api/prometheus/targets/postgres'
+      - url: 'https://172.22.2.139/api/prometheus/targets/postgres'
         refresh_interval: 30s
         tls_config:
           insecure_skip_verify: true
 
-  # MySQL / MariaDB exporter targets (if mysqld_exporter is installed on any node)
   - job_name: 'mysql'
     http_sd_configs:
-      - url: 'http://172.22.2.139/api/prometheus/targets/mysql'
+      - url: 'https://172.22.2.139/api/prometheus/targets/mysql'
         refresh_interval: 30s
         tls_config:
           insecure_skip_verify: true
