@@ -83,9 +83,17 @@ class ServerController extends Controller
             if (empty($points)) {
                 $points = [];
                 for ($i = $days; $i >= 0; $i--) {
+                    $dateStr = now()->subDays($i)->toDateString();
+                    if ($i === 0) {
+                        $val = $isUp ? 1.0 : 0.0;
+                    } else {
+                        $hash = hexdec(substr(md5("server_{$server->id}_{$dateStr}"), 0, 8));
+                        $randVal = $hash % 100;
+                        $val = $randVal > 98 ? 0.0 : ($randVal > 95 ? 0.95 : 1.0);
+                    }
                     $points[] = [
                         now()->subDays($i)->timestamp,
-                        mt_rand(1, 100) > 98 ? 0.0 : (mt_rand(1, 100) > 95 ? 0.95 : 1.0)
+                        $val
                     ];
                 }
             }
@@ -100,40 +108,49 @@ class ServerController extends Controller
             $upCount = $history->where('status', 'up')->count();
             $uptimePct = $history->count() > 0 ? round(($upCount / $history->count()) * 100, 2) : 100.0;
 
-            // Fetch 1h average uptime & history (minute-by-minute resolution)
-            $start1h = now()->subHour()->timestamp;
+            // Fetch 24h average uptime & history (hourly resolution)
+            $start24h = now()->subRealDay()->timestamp;
             try {
-                $results1h = $this->prometheus->queryRange(
-                    query: "up{instance=\"{$prometheusInstance}\"}",
-                    start: $start1h,
+                $results24h = $this->prometheus->queryRange(
+                    query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h])",
+                    start: $start24h,
                     end:   $end,
-                    step:  '60'
+                    step:  '3600'
                 );
-                $points1h = $results1h[0]['values'] ?? [];
+                $points24h = $results24h[0]['values'] ?? [];
             } catch (\Exception $e) {
-                $points1h = [];
+                $points24h = [];
             }
 
             // Mock historical points if empty
-            if (empty($points1h)) {
-                $points1h = [];
-                for ($i = 60; $i >= 0; $i--) {
-                    $points1h[] = [
-                        now()->subMinutes($i)->timestamp,
-                        1.0 // default up
+            if (empty($points24h)) {
+                $points24h = [];
+                for ($i = 24; $i >= 0; $i--) {
+                    $ts = now()->subHours($i)->timestamp;
+                    $dateHourStr = \Carbon\Carbon::createFromTimestamp($ts)->format('Y-m-d H');
+                    if ($i === 0) {
+                        $val = $isUp ? 1.0 : 0.0;
+                    } else {
+                        $hash = hexdec(substr(md5("server_{$server->id}_{$dateHourStr}"), 0, 8));
+                        $randVal = $hash % 100;
+                        $val = $randVal > 98 ? 0.0 : ($randVal > 96 ? 0.95 : 1.0);
+                    }
+                    $points24h[] = [
+                        $ts,
+                        $val
                     ];
                 }
             }
 
-            $history1h = collect($points1h)
+            $history24h = collect($points24h)
                 ->map(fn($point) => [
-                    'date'   => \Carbon\Carbon::createFromTimestamp((int)$point[0])->toTimeString(),
+                    'date'   => \Carbon\Carbon::createFromTimestamp((int)$point[0])->toIso8601String(),
                     'status' => ((float)$point[1] >= 0.99) ? 'up' : (((float)$point[1] >= 0.8) ? 'degraded' : 'down'),
                     'value'  => round((float)$point[1] * 100, 2),
                 ]);
 
-            $upCount1h = $history1h->where('status', 'up')->count();
-            $uptime1hPct = $history1h->count() > 0 ? round(($upCount1h / $history1h->count()) * 100, 2) : 100.0;
+            $upCount24h = $history24h->where('status', 'up')->count();
+            $uptime24hPct = $history24h->count() > 0 ? round(($upCount24h / $history24h->count()) * 100, 2) : 100.0;
 
             return [
                 'id'                 => $server->id,
@@ -143,9 +160,9 @@ class ServerController extends Controller
                 'env'                => $server->env,
                 'status'             => $isUp ? 'up' : 'down',
                 'uptime_pct'         => $uptimePct,
-                'uptime_1h_pct'      => $uptime1hPct,
+                'uptime_24h_pct'     => $uptime24hPct,
                 'history'            => $history->values()->toArray(),
-                'history_1h'         => $history1h->values()->toArray(),
+                'history_24h'        => $history24h->values()->toArray(),
                 'metrics'            => $metrics ?: null,
                 // DB credential metadata (password is intentionally omitted via $hidden)
                 'db_type'            => $server->db_type ?? 'none',
@@ -245,9 +262,17 @@ class ServerController extends Controller
         if (empty($points)) {
             $points = [];
             for ($i = $days; $i >= 0; $i--) {
+                $dateStr = now()->subDays($i)->toDateString();
+                if ($i === 0) {
+                    $val = $isUp ? 1.0 : 0.0;
+                } else {
+                    $hash = hexdec(substr(md5("server_{$server->id}_{$dateStr}"), 0, 8));
+                    $randVal = $hash % 100;
+                    $val = $randVal > 98 ? 0.0 : ($randVal > 95 ? 0.95 : 1.0);
+                }
                 $points[] = [
                     now()->subDays($i)->timestamp,
-                    mt_rand(1, 100) > 98 ? 0.0 : (mt_rand(1, 100) > 95 ? 0.95 : 1.0)
+                    $val
                 ];
             }
         }
@@ -262,40 +287,49 @@ class ServerController extends Controller
         $upCount = $history->where('status', 'up')->count();
         $uptimePct = $history->count() > 0 ? round(($upCount / $history->count()) * 100, 2) : 100.0;
 
-        // Fetch 1h average uptime & history (minute-by-minute resolution)
-        $start1h = now()->subHour()->timestamp;
+        // Fetch 24h average uptime & history (hourly resolution)
+        $start24h = now()->subRealDay()->timestamp;
         try {
-            $results1h = $this->prometheus->queryRange(
-                query: "up{instance=\"{$prometheusInstance}\"}",
-                start: $start1h,
+            $results24h = $this->prometheus->queryRange(
+                query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h])",
+                start: $start24h,
                 end:   $end,
-                step:  '60'
+                step:  '3600'
             );
-            $points1h = $results1h[0]['values'] ?? [];
+            $points24h = $results24h[0]['values'] ?? [];
         } catch (\Exception $e) {
-            $points1h = [];
+            $points24h = [];
         }
 
         // Mock historical points if empty
-        if (empty($points1h)) {
-            $points1h = [];
-            for ($i = 60; $i >= 0; $i--) {
-                $points1h[] = [
-                    now()->subMinutes($i)->timestamp,
-                    1.0 // default up
+        if (empty($points24h)) {
+            $points24h = [];
+            for ($i = 24; $i >= 0; $i--) {
+                $ts = now()->subHours($i)->timestamp;
+                $dateHourStr = \Carbon\Carbon::createFromTimestamp($ts)->format('Y-m-d H');
+                if ($i === 0) {
+                    $val = $isUp ? 1.0 : 0.0;
+                } else {
+                    $hash = hexdec(substr(md5("server_{$server->id}_{$dateHourStr}"), 0, 8));
+                    $randVal = $hash % 100;
+                    $val = $randVal > 98 ? 0.0 : ($randVal > 96 ? 0.95 : 1.0);
+                }
+                $points24h[] = [
+                    $ts,
+                    $val
                 ];
             }
         }
 
-        $history1h = collect($points1h)
+        $history24h = collect($points24h)
             ->map(fn($point) => [
-                'date'   => \Carbon\Carbon::createFromTimestamp((int)$point[0])->toTimeString(),
+                'date'   => \Carbon\Carbon::createFromTimestamp((int)$point[0])->toIso8601String(),
                 'status' => ((float)$point[1] >= 0.99) ? 'up' : (((float)$point[1] >= 0.8) ? 'degraded' : 'down'),
                 'value'  => round((float)$point[1] * 100, 2),
             ]);
 
-        $upCount1h = $history1h->where('status', 'up')->count();
-        $uptime1hPct = $history1h->count() > 0 ? round(($upCount1h / $history1h->count()) * 100, 2) : 100.0;
+        $upCount24h = $history24h->where('status', 'up')->count();
+        $uptime24hPct = $history24h->count() > 0 ? round(($upCount24h / $history24h->count()) * 100, 2) : 100.0;
 
         return response()->json([
             'id'                 => $server->id,
@@ -305,9 +339,9 @@ class ServerController extends Controller
             'env'                => $server->env,
             'status'             => $isUp ? 'up' : 'down',
             'uptime_pct'         => $uptimePct,
-            'uptime_1h_pct'      => $uptime1hPct,
+            'uptime_24h_pct'     => $uptime24hPct,
             'history'            => $history->values()->toArray(),
-            'history_1h'         => $history1h->values()->toArray(),
+            'history_24h'        => $history24h->values()->toArray(),
             'metrics'            => $metrics,
             'db_type'            => $server->db_type ?? 'none',
             'db_host'            => $server->db_host,

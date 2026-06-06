@@ -75,8 +75,21 @@ function labelFor(status: string): string {
 
 function formatDate(dateStr: string): string {
   try {
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-    return new Date(dateStr).toLocaleDateString('en-US', options);
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    } else {
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      };
+      return date.toLocaleDateString('en-US', options);
+    }
   } catch (e) {
     return dateStr;
   }

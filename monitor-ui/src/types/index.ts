@@ -32,8 +32,8 @@ export interface Server {
   ssh_user?: string | null;
   ssh_port?: number | null;
   has_ssh_credentials?: boolean;
-  uptime_1h_pct?: number;
-  history_1h?: UptimeDay[];
+  uptime_24h_pct?: number;
+  history_24h?: UptimeDay[];
 }
 
 export interface ServerMetrics {

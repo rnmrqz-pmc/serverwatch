@@ -39,17 +39,17 @@ class ServerManagementTest extends TestCase
                     'env',
                     'status',
                     'uptime_pct',
-                    'uptime_1h_pct',
+                    'uptime_24h_pct',
                     'history',
-                    'history_1h',
+                    'history_24h',
                     'metrics',
                 ]
             ]);
 
         $this->assertIsArray($response->json()[0]['history']);
         $this->assertNotEmpty($response->json()[0]['history']);
-        $this->assertIsArray($response->json()[0]['history_1h']);
-        $this->assertNotEmpty($response->json()[0]['history_1h']);
+        $this->assertIsArray($response->json()[0]['history_24h']);
+        $this->assertNotEmpty($response->json()[0]['history_24h']);
     }
 
     public function test_authenticated_user_can_create_server()

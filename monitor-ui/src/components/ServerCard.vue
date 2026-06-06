@@ -102,14 +102,14 @@
       <UptimeBar :server-name="server.name" :history="historyData" :days="90" />
     </div>
 
-    <!-- Uptime Timeline (Last 1 Hour) -->
-    <div class="uptime-section hourly-section" v-if="server.history_1h && server.history_1h.length">
-      <div class="timeline-label-header">Uptime (Last 1 Hour)</div>
+    <!-- Uptime Timeline (Last 24 Hours) -->
+    <div class="uptime-section hourly-section" v-if="server.history_24h && server.history_24h.length">
+      <div class="timeline-label-header">Uptime (Last 24 Hours)</div>
       <UptimeBar
-        :server-name="server.name + '-1h'"
-        :history="server.history_1h"
-        :days="60"
-        start-label="60 mins ago"
+        :server-name="server.name + '-24h'"
+        :history="server.history_24h"
+        :days="24"
+        start-label="24 hours ago"
         end-label="Now"
       />
     </div>
