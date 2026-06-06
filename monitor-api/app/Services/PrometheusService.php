@@ -240,7 +240,6 @@ class PrometheusService
 
     private function getMysqlSize(string $myInstance): int
     {
-        // Sum data_length + index_length across all user databases
         $result = $this->query(
             "sum(mysql_info_schema_table_size_bytes{instance=\"{$myInstance}\",table_schema!~\"information_schema|performance_schema|mysql|sys\"})"
         );
