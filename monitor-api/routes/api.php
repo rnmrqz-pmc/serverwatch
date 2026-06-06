@@ -23,6 +23,8 @@ Route::prefix('v1')->group(function () {
         // Server management
         Route::apiResource('users', UserController::class);
         Route::apiResource('servers', ServerController::class);
+        Route::put('/servers/{server}/db-credentials', [ServerController::class, 'updateDbCredentials']);
+        Route::put('/servers/{server}/ssh-credentials', [ServerController::class, 'updateSshCredentials']);
 
         // Real-time metrics
         Route::get('/metrics/{instance}', [MetricsController::class, 'current']);

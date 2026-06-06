@@ -98,7 +98,20 @@
 
     <!-- Uptime Timeline (90 Days) -->
     <div class="uptime-section" v-if="historyData">
+      <div class="timeline-label-header">Uptime (Last 90 Days)</div>
       <UptimeBar :server-name="server.name" :history="historyData" :days="90" />
+    </div>
+
+    <!-- Uptime Timeline (Last 1 Hour) -->
+    <div class="uptime-section hourly-section" v-if="server.history_1h && server.history_1h.length">
+      <div class="timeline-label-header">Uptime (Last 1 Hour)</div>
+      <UptimeBar
+        :server-name="server.name + '-1h'"
+        :history="server.history_1h"
+        :days="60"
+        start-label="60 mins ago"
+        end-label="Now"
+      />
     </div>
   </div>
 </template>
@@ -401,5 +414,20 @@ const hasDatabases = computed(() =>
   font-size: 0.72rem;
   color: #334155;
   font-weight: 500;
+}
+
+.timeline-label-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.hourly-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding-top: 12px;
+  margin-top: -8px;
 }
 </style>

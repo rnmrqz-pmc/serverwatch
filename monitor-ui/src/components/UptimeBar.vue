@@ -11,9 +11,9 @@
       />
     </div>
     <div class="bars-footer">
-      <span>{{ days }} days ago</span>
+      <span>{{ startLabel || `${days} days ago` }}</span>
       <span class="uptime-pct" :class="pctClass">{{ uptimePct }}% uptime</span>
-      <span>Today</span>
+      <span>{{ endLabel || 'Today' }}</span>
     </div>
     
     <!-- Tooltip -->
@@ -34,6 +34,8 @@ const props = defineProps<{
   serverName: string;
   history: UptimeDay[];
   days: number;
+  startLabel?: string;
+  endLabel?: string;
 }>();
 
 const hovered = ref<UptimeDay | null>(null);

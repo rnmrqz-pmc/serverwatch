@@ -21,6 +21,19 @@ export interface Server {
   metrics: ServerMetrics | null;
   history: UptimeDay[];
   incidents?: Incident[];
+  // Database credential metadata (password is never sent to the client)
+  db_type?: DbType | 'none';
+  db_host?: string | null;
+  db_port?: number | null;
+  db_user?: string | null;
+  db_name?: string | null;
+  has_db_credentials?: boolean;
+  // SSH credential metadata (password is never sent to the client)
+  ssh_user?: string | null;
+  ssh_port?: number | null;
+  has_ssh_credentials?: boolean;
+  uptime_1h_pct?: number;
+  history_1h?: UptimeDay[];
 }
 
 export interface ServerMetrics {

@@ -13,10 +13,37 @@ class MetricsController extends Controller
 
     public function current(string $instance): JsonResponse
     {
+        $server = \App\Models\Server::where('ip', $instance)->first();
+
         try {
             $metrics = $this->prometheus->getServerMetrics($instance);
+
+            // If Prometheus succeeded but database metrics are missing, try querying directly if DB credentials exist
+            if (empty($metrics['databases']) && $server && !empty($server->db_host) && !empty($server->db_user) && ($server->db_type !== 'none')) {
+                try {
+                    $directMonitor = app(\App\Services\DirectMonitoringService::class);
+                    $dbMetrics = $directMonitor->getDatabaseMetrics($server);
+                    if ($dbMetrics) {
+                        $metrics['databases'] = [$dbMetrics];
+                    }
+                } catch (\Exception $e) {
+                    // Ignore DB fallback errors
+                }
+            }
+
             return response()->json($metrics);
         } catch (\Exception $e) {
+            // If Prometheus fails, check if we can query the target directly via SSH
+            if ($server && !empty($server->ssh_user) && !empty($server->ssh_password)) {
+                try {
+                    $directMonitor = app(\App\Services\DirectMonitoringService::class);
+                    $metrics = $directMonitor->getServerMetricsViaSsh($server);
+                    return response()->json($metrics);
+                } catch (\Exception $sshEx) {
+                    // Direct SSH monitoring failed as well
+                }
+            }
+
             return response()->json(['message' => 'Failed to retrieve metrics: ' . $e->getMessage()], 500);
         }
     }

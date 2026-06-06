@@ -39,6 +39,8 @@
             <th>IP Address / Host</th>
             <th>Role</th>
             <th>Environment</th>
+            <th>Database</th>
+            <th>SSH</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
@@ -59,10 +61,40 @@
             <td>
               <span class="env-badge" :class="srv.env">{{ srv.env }}</span>
             </td>
+            <td>
+              <div class="db-cell" v-if="srv.db_type && srv.db_type !== 'none'">
+                <span class="db-cell__icon">{{ dbIcon(srv.db_type) }}</span>
+                <div class="db-cell__info">
+                  <span class="db-cell__type">{{ dbLabel(srv.db_type) }}</span>
+                  <span class="db-cell__status" :class="srv.has_db_credentials ? 'configured' : 'unconfigured'">
+                    {{ srv.has_db_credentials ? '● Configured' : '○ Credentials missing' }}
+                  </span>
+                </div>
+              </div>
+              <span v-else class="db-none-badge">—</span>
+            </td>
+            <td>
+              <div class="ssh-cell" v-if="srv.ssh_user">
+                <span class="ssh-cell__icon">🔑</span>
+                <div class="ssh-cell__info">
+                  <span class="ssh-cell__user">{{ srv.ssh_user }} (port {{ srv.ssh_port || 22 }})</span>
+                  <span class="ssh-cell__status" :class="srv.has_ssh_credentials ? 'configured' : 'unconfigured'">
+                    {{ srv.has_ssh_credentials ? '● Configured' : '○ Password missing' }}
+                  </span>
+                </div>
+              </div>
+              <span v-else class="ssh-none-badge">—</span>
+            </td>
             <td class="actions-col">
               <div class="action-buttons">
                 <button class="action-btn edit-btn" @click="openEditModal(srv)" title="Edit Target">
                   ✏️
+                </button>
+                <button class="action-btn db-btn" @click="openDbModal(srv)" title="Configure Database Credentials">
+                  🗄️
+                </button>
+                <button class="action-btn ssh-btn" @click="openSshModal(srv)" title="Configure SSH Credentials">
+                  🔑
                 </button>
                 <button class="action-btn delete-btn" @click="confirmDelete(srv)" title="Delete Target">
                   🗑️
@@ -137,6 +169,22 @@
       </div>
     </div>
 
+    <!-- Database Credentials Modal -->
+    <DatabaseCredentialsModal
+      v-if="showDbModal && selectedDbServer"
+      :server="selectedDbServer"
+      @close="closeDbModal"
+      @saved="onDbCredentialsSaved"
+    />
+
+    <!-- SSH Credentials Modal -->
+    <SshCredentialsModal
+      v-if="showSshModal && selectedSshServer"
+      :server="selectedSshServer"
+      @close="closeSshModal"
+      @saved="onSshCredentialsSaved"
+    />
+
     <!-- Delete Confirmation Modal -->
     <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
       <div class="glass-card modal-card delete-confirm-card">
@@ -159,6 +207,8 @@
 import { ref, onMounted } from 'vue';
 import { apiFetch } from '../utils/api';
 import { useServersStore } from '../stores/servers';
+import DatabaseCredentialsModal from './DatabaseCredentialsModal.vue';
+import SshCredentialsModal from './SshCredentialsModal.vue';
 
 interface ServerNode {
   id: number;
@@ -166,6 +216,15 @@ interface ServerNode {
   ip: string;
   role: string;
   env: string;
+  db_type?: string;
+  db_host?: string | null;
+  db_port?: number | null;
+  db_user?: string | null;
+  db_name?: string | null;
+  has_db_credentials?: boolean;
+  ssh_user?: string | null;
+  ssh_port?: number | null;
+  has_ssh_credentials?: boolean;
 }
 
 const serversStore = useServersStore();
@@ -181,6 +240,14 @@ const showModal = ref(false);
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const selectedServer = ref<ServerNode | null>(null);
+
+// DB credentials modal
+const showDbModal = ref(false);
+const selectedDbServer = ref<ServerNode | null>(null);
+
+// SSH credentials modal
+const showSshModal = ref(false);
+const selectedSshServer = ref<ServerNode | null>(null);
 
 // Form data
 const form = ref({
@@ -198,13 +265,22 @@ async function fetchServersList() {
     const res = await apiFetch('/servers');
     if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
     const data = await res.json();
-    // API returns calculated server models with status/metrics, let's map properties
+    // API returns calculated server models with status/metrics, map properties
     servers.value = data.map((srv: any) => ({
-      id: srv.id,
-      name: srv.name,
-      ip: srv.instance,
-      role: srv.role,
-      env: srv.env,
+      id:                  srv.id,
+      name:                srv.name,
+      ip:                  srv.instance,
+      role:                srv.role,
+      env:                 srv.env,
+      db_type:             srv.db_type ?? 'none',
+      db_host:             srv.db_host ?? null,
+      db_port:             srv.db_port ?? null,
+      db_user:             srv.db_user ?? null,
+      db_name:             srv.db_name ?? null,
+      has_db_credentials:  srv.has_db_credentials ?? false,
+      ssh_user:            srv.ssh_user ?? null,
+      ssh_port:            srv.ssh_port ?? null,
+      has_ssh_credentials: srv.has_ssh_credentials ?? false,
     }));
   } catch (e) {
     errorMsg.value = 'Failed to load target servers.';
@@ -212,6 +288,54 @@ async function fetchServersList() {
   } finally {
     loading.value = false;
   }
+}
+
+// ── DB credential helpers ─────────────────────────────────────────────────
+
+const DB_META: Record<string, { label: string; icon: string }> = {
+  mariadb:    { label: 'MariaDB',    icon: '🦁' },
+  mysql:      { label: 'MySQL',      icon: '🐬' },
+  postgresql: { label: 'PostgreSQL', icon: '🐘' },
+};
+
+function dbIcon(type?: string): string {
+  return DB_META[type ?? '']?.icon ?? '🗄️';
+}
+
+function dbLabel(type?: string): string {
+  return DB_META[type ?? '']?.label ?? (type ?? '—');
+}
+
+function openDbModal(srv: ServerNode) {
+  selectedDbServer.value = srv;
+  showDbModal.value = true;
+}
+
+function closeDbModal() {
+  showDbModal.value = false;
+  selectedDbServer.value = null;
+}
+
+function onDbCredentialsSaved() {
+  fetchServersList();
+  serversStore.fetchServers();
+}
+
+// ── SSH credential helpers ────────────────────────────────────────────────
+
+function openSshModal(srv: ServerNode) {
+  selectedSshServer.value = srv;
+  showSshModal.value = true;
+}
+
+function closeSshModal() {
+  showSshModal.value = false;
+  selectedSshServer.value = null;
+}
+
+function onSshCredentialsSaved() {
+  fetchServersList();
+  serversStore.fetchServers();
 }
 
 function openAddModal() {
@@ -543,9 +667,56 @@ onMounted(() => {
   border-color: rgba(99, 102, 241, 0.3);
 }
 
+.db-btn:hover {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ── Database cell ──────────────────────────────────────────────────────────*/
+.db-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-cell__icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.db-cell__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.db-cell__type {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.db-cell__status {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.db-cell__status.configured {
+  color: #34d399;
+}
+
+.db-cell__status.unconfigured {
+  color: #f59e0b;
+}
+
+.db-none-badge {
+  color: #334155;
+  font-size: 0.9rem;
 }
 
 /* Modals */
@@ -737,5 +908,52 @@ onMounted(() => {
 .modal-btn-danger:hover:not(:disabled) {
   background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
   box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+}
+
+/* ── SSH cell ──────────────────────────────────────────────────────────*/
+.ssh-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ssh-cell__icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.ssh-cell__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ssh-cell__user {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.ssh-cell__status {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.ssh-cell__status.configured {
+  color: #34d399;
+}
+
+.ssh-cell__status.unconfigured {
+  color: #f59e0b;
+}
+
+.ssh-none-badge {
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.ssh-btn:hover {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
 }
 </style>
