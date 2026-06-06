@@ -52,7 +52,7 @@
                 id="db-host"
                 type="text"
                 v-model="form.db_host"
-                :placeholder="form.db_type === 'postgresql' ? 'e.g. 172.22.2.10' : 'e.g. 172.22.2.10'"
+                :placeholder="form.db_type === 'postgresql' ? 'e.g. [IP_ADDRESS]' : 'e.g. [IP_ADDRESS]'"
                 required
               />
             </div>

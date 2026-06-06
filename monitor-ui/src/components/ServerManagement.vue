@@ -132,7 +132,7 @@
               type="text" 
               id="modal-ip" 
               v-model="form.ip" 
-              placeholder="e.g. 172.22.2.174" 
+              placeholder="e.g. {IP_ADDRESS}" 
               required
             />
             <span class="field-hint">IP address or hostname target that has Node Exporter installed.</span>
