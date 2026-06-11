@@ -132,48 +132,15 @@ class PrometheusService
      */
     private function getDatabases(string $instance): array
     {
-        $ip = preg_replace('/:\d+$/', '', $instance); // strip :9100
-        $isIp = filter_var($ip, FILTER_VALIDATE_IP) !== false;
+        $ipOrHost = preg_replace('/:\d+$/', '', $instance); // strip port if present
 
         $databases = [];
 
-        // ── 1. Direct match (IP-based production hosts) ───────────────────────
-        if ($isIp) {
-            $pgInstance = "{$ip}:9187";
-            $pgUp = $this->query("pg_up{instance=\"{$pgInstance}\"}");
-            if (!empty($pgUp)) {
-                $up = (int)($pgUp[0]['value'][1] ?? 0);
-                $databases[] = [
-                    'type'        => 'postgresql',
-                    'health'      => $up === 1 ? 'healthy' : 'down',
-                    'size_bytes'  => $this->getPostgresSize($pgInstance),
-                    'connections' => $this->getPostgresConnections($pgInstance),
-                    'version'     => $this->getPostgresVersion($pgInstance),
-                ];
-            }
-
-            $myInstance = "{$ip}:9104";
-            $myUp = $this->query("mysql_up{instance=\"{$myInstance}\"}");
-            if (!empty($myUp)) {
-                $up = (int)($myUp[0]['value'][1] ?? 0);
-                $databases[] = [
-                    'type'        => $this->detectMysqlFlavour($myInstance),
-                    'health'      => $up === 1 ? 'healthy' : 'down',
-                    'size_bytes'  => $this->getMysqlSize($myInstance),
-                    'connections' => $this->getMysqlConnections($myInstance),
-                    'version'     => $this->getMysqlVersion($myInstance),
-                ];
-            }
-
-            return $databases;
-        }
-
-        // ── 2. Global discovery (Docker hostname-based / dev stack) ───────────
-        // Fetch every pg_up result across the entire Prometheus environment.
-        $allPg = $this->query('pg_up');
-        foreach ($allPg as $result) {
-            $pgInstance = $result['metric']['instance'] ?? '';
-            $up = (int)($result['value'][1] ?? 0);
+        // 1. PostgreSQL Check
+        $pgUp = $this->query("pg_up{instance=~\"{$ipOrHost}(:\\\\d+)?\"}");
+        if (!empty($pgUp)) {
+            $pgInstance = $pgUp[0]['metric']['instance'] ?? "{$ipOrHost}:9187";
+            $up = (int)($pgUp[0]['value'][1] ?? 0);
             $databases[] = [
                 'type'        => 'postgresql',
                 'health'      => $up === 1 ? 'healthy' : 'down',
@@ -183,10 +150,11 @@ class PrometheusService
             ];
         }
 
-        $allMy = $this->query('mysql_up');
-        foreach ($allMy as $result) {
-            $myInstance = $result['metric']['instance'] ?? '';
-            $up = (int)($result['value'][1] ?? 0);
+        // 2. MySQL / MariaDB Check
+        $myUp = $this->query("mysql_up{instance=~\"{$ipOrHost}(:\\\\d+)?\"}");
+        if (!empty($myUp)) {
+            $myInstance = $myUp[0]['metric']['instance'] ?? "{$ipOrHost}:9104";
+            $up = (int)($myUp[0]['value'][1] ?? 0);
             $databases[] = [
                 'type'        => $this->detectMysqlFlavour($myInstance),
                 'health'      => $up === 1 ? 'healthy' : 'down',
