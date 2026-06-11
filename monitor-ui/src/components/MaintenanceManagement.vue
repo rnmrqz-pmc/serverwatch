@@ -36,6 +36,7 @@
         </div>
 
         <form @submit.prevent="handleSave" class="settings-form">
+          <fieldset :disabled="!authStore.hasPermission('maintenance', 'update')" style="border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; width: 100%;">
           <div class="form-row">
             <div class="form-group flex-3">
               <label for="smtp-host">SMTP Host</label>
@@ -133,6 +134,7 @@
               <span v-else>💾 Save Configuration</span>
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
 
@@ -147,6 +149,7 @@
         </div>
 
         <div class="test-form">
+          <fieldset :disabled="!authStore.hasPermission('maintenance', 'update')" style="border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; width: 100%;">
           <div class="form-group">
             <label for="test-email">Recipient Email Address</label>
             <input
@@ -175,6 +178,7 @@
             <span v-if="testing" class="spinner-small"></span>
             <span v-else>🚀 Send Test Email</span>
           </button>
+          </fieldset>
         </div>
       </div>
     </div>
@@ -184,6 +188,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { apiFetch } from '../utils/api';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
 
 const form = ref({
   mail_host: '',

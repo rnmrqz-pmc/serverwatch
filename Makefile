@@ -73,12 +73,11 @@ start: stop
 	@echo "  - $(CYAN)Alertmanager:$(RESET)  http://localhost:9093"
 
 stop:
-	@echo "$(YELLOW)=== Stopping Laravel API & Vue UI Servers ===$(RESET)"
-	@lsof -t -i :8000 | xargs kill -9 2>/dev/null || true
-	@lsof -t -i :5173 | xargs kill -9 2>/dev/null || true
-	@echo "$(YELLOW)=== Stopping Docker Containers ===$(RESET)"
+	@echo "PATH=$$PATH"
+	@which docker
+	@docker context show
+	@docker ps
 	docker compose -f infra/docker-compose.yml down
-	@echo "$(GREEN)✓ All services stopped.$(RESET)"
 
 build:
 	@echo "$(YELLOW)=== Building Vue 3 UI for production ===$(RESET)"

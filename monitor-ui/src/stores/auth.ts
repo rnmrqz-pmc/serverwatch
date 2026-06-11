@@ -6,6 +6,11 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  permissions?: {
+    servers: string[];
+    users: string[];
+    maintenance: string[];
+  };
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -89,6 +94,13 @@ export const useAuthStore = defineStore('auth', () => {
     });
   }
 
+  function hasPermission(module: string, action: string): boolean {
+    if (!user.value) return false;
+    if (!user.value.permissions) return true; // fallback
+    const modulePerms = (user.value.permissions as any)[module];
+    return Array.isArray(modulePerms) && modulePerms.includes(action);
+  }
+
   return {
     token,
     user,
@@ -99,5 +111,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     fetchMe,
     reset,
+    hasPermission,
   };
 });

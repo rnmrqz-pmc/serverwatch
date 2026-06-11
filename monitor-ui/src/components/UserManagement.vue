@@ -6,7 +6,11 @@
         <h2>User Management</h2>
         <p class="section-desc">Manage admin credentials and monitor access permissions.</p>
       </div>
-      <button class="add-user-btn" @click="openAddModal">
+      <button 
+        class="add-user-btn" 
+        @click="openAddModal"
+        v-if="authStore.hasPermission('users', 'create')"
+      >
         <span class="plus-icon">+</span> Add New User
       </button>
     </div>
@@ -63,18 +67,23 @@
                 <button 
                   class="action-btn reset-btn" 
                   @click="confirmResetPassword(user)" 
-                  :disabled="authStore.user?.id === user.id"
+                  :disabled="authStore.user?.id === user.id || !authStore.hasPermission('users', 'update')"
                   title="Reset Password"
                 >
                   🔑
                 </button>
-                <button class="action-btn edit-btn" @click="openEditModal(user)" title="Edit User">
+                <button 
+                  class="action-btn edit-btn" 
+                  @click="openEditModal(user)" 
+                  :disabled="authStore.user?.id !== user.id && !authStore.hasPermission('users', 'update')"
+                  title="Edit User"
+                >
                   ✏️
                 </button>
                 <button 
                   class="action-btn delete-btn" 
                   @click="confirmDelete(user)" 
-                  :disabled="authStore.user?.id === user.id"
+                  :disabled="authStore.user?.id === user.id || !authStore.hasPermission('users', 'delete')"
                   title="Delete User"
                 >
                   🗑️
@@ -128,6 +137,63 @@
               v-model="form.password" 
               placeholder="••••••••" 
             />
+          </div>
+
+          <!-- Permissions matrix section -->
+          <div class="form-group permissions-group">
+            <label>Permissions Configuration</label>
+            <div class="permissions-matrix">
+              <!-- Servers -->
+              <div class="matrix-row">
+                <span class="matrix-module">Server Settings</span>
+                <div class="matrix-checkboxes">
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.servers" value="view" :disabled="authStore.user?.id === form.id" /> View
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.servers" value="create" :disabled="authStore.user?.id === form.id" /> Create
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.servers" value="update" :disabled="authStore.user?.id === form.id" /> Update
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.servers" value="delete" :disabled="authStore.user?.id === form.id" /> Delete
+                  </label>
+                </div>
+              </div>
+
+              <!-- Users -->
+              <div class="matrix-row">
+                <span class="matrix-module">Users</span>
+                <div class="matrix-checkboxes">
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.users" value="view" :disabled="authStore.user?.id === form.id" /> View
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.users" value="create" :disabled="authStore.user?.id === form.id" /> Create
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.users" value="update" :disabled="authStore.user?.id === form.id" /> Update
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.users" value="delete" :disabled="authStore.user?.id === form.id" /> Delete
+                  </label>
+                </div>
+              </div>
+
+              <!-- Maintenance -->
+              <div class="matrix-row">
+                <span class="matrix-module">Maintenance</span>
+                <div class="matrix-checkboxes">
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.maintenance" value="view" :disabled="authStore.user?.id === form.id" /> View
+                  </label>
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.maintenance" value="update" :disabled="authStore.user?.id === form.id" /> Update
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="modal-actions">
@@ -184,6 +250,11 @@ interface User {
   id: number;
   name: string;
   email: string;
+  permissions?: {
+    servers: string[];
+    users: string[];
+    maintenance: string[];
+  };
   created_at: string;
 }
 
@@ -208,6 +279,11 @@ const form = ref({
   name: '',
   email: '',
   password: '',
+  permissions: {
+    servers: ['view', 'create', 'update', 'delete'],
+    users: ['view', 'create', 'update', 'delete'],
+    maintenance: ['view', 'update']
+  }
 });
 
 async function fetchUsers() {
@@ -239,13 +315,33 @@ function formatDate(isoStr: string): string {
 
 function openAddModal() {
   isEditMode.value = false;
-  form.value = { id: 0, name: '', email: '', password: '' };
+  form.value = {
+    id: 0,
+    name: '',
+    email: '',
+    password: '',
+    permissions: {
+      servers: ['view', 'create', 'update', 'delete'],
+      users: ['view', 'create', 'update', 'delete'],
+      maintenance: ['view', 'update']
+    }
+  };
   showModal.value = true;
 }
 
 function openEditModal(user: User) {
   isEditMode.value = true;
-  form.value = { id: user.id, name: user.name, email: user.email, password: '' };
+  form.value = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    password: '',
+    permissions: user.permissions ? JSON.parse(JSON.stringify(user.permissions)) : {
+      servers: ['view', 'create', 'update', 'delete'],
+      users: ['view', 'create', 'update', 'delete'],
+      maintenance: ['view', 'update']
+    }
+  };
   showModal.value = true;
 }
 
@@ -306,9 +402,10 @@ async function handleSubmit() {
   try {
     if (isEditMode.value) {
       // Update
-      const body: Record<string, string> = {
+      const body: Record<string, any> = {
         name: form.value.name,
         email: form.value.email,
+        permissions: form.value.permissions,
       };
       if (form.value.password) {
         body.password = form.value.password;
@@ -332,6 +429,7 @@ async function handleSubmit() {
         body: JSON.stringify({
           name: form.value.name,
           email: form.value.email,
+          permissions: form.value.permissions,
         }),
       });
 
@@ -792,5 +890,64 @@ onMounted(() => {
 .modal-btn-danger:hover:not(:disabled) {
   background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
   box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+}
+
+.permissions-group {
+  margin-top: 8px;
+}
+
+.permissions-matrix {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.matrix-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  padding-bottom: 8px;
+}
+
+.matrix-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.matrix-module {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  width: 100px;
+}
+
+.matrix-checkboxes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.matrix-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.matrix-checkbox-label input {
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.matrix-checkbox-label input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 </style>

@@ -13,6 +13,10 @@ class MetricsController extends Controller
 
     public function current(string $instance): JsonResponse
     {
+        if (!request()->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view server metrics.'], 403);
+        }
+
         $server = \App\Models\Server::where('ip', $instance)->first();
 
         try {
@@ -50,6 +54,10 @@ class MetricsController extends Controller
 
     public function history(Request $request, string $instance): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view server metrics.'], 403);
+        }
+
         $hours = (int) $request->query('hours', 24);
         $start = now()->subHours($hours)->timestamp;
         $end = now()->timestamp;

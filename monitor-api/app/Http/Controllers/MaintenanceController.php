@@ -15,6 +15,10 @@ class MaintenanceController extends Controller
      */
     public function getSmtpSettings(): JsonResponse
     {
+        if (!request()->user()->hasPermission('maintenance', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view maintenance settings.'], 403);
+        }
+
         return response()->json([
             'mail_host'         => Setting::get('mail_host', config('mail.mailers.smtp.host')),
             'mail_port'         => (int) Setting::get('mail_port', config('mail.mailers.smtp.port') ?: 587),
@@ -31,6 +35,10 @@ class MaintenanceController extends Controller
      */
     public function updateSmtpSettings(Request $request): JsonResponse
     {
+        if (!$request->user()->hasPermission('maintenance', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update maintenance settings.'], 403);
+        }
+
         $validated = $request->validate([
             'mail_host'         => 'required|string',
             'mail_port'         => 'required|integer|min:1|max:65535',
@@ -67,6 +75,10 @@ class MaintenanceController extends Controller
      */
     public function testSmtpSettings(Request $request): JsonResponse
     {
+        if (!$request->user()->hasPermission('maintenance', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update maintenance settings.'], 403);
+        }
+
         $validated = $request->validate([
             'email'             => 'required|email',
             'mail_host'         => 'required|string',

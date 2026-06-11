@@ -18,6 +18,7 @@
             class="nav-item" 
             :class="{ active: currentTab === 'dashboard' }"
             @click="currentTab = 'dashboard'"
+            v-if="authStore.hasPermission('servers', 'view')"
           >
             <span class="nav-label">Dashboard</span>
           </button>
@@ -25,13 +26,23 @@
             class="nav-item" 
             :class="{ active: currentTab === 'uptime' }"
             @click="currentTab = 'uptime'"
+            v-if="authStore.hasPermission('servers', 'view')"
           >
             <span class="nav-label">Uptime History</span>
           </button>
           <button 
             class="nav-item" 
+            :class="{ active: currentTab === 'incidents' }"
+            @click="currentTab = 'incidents'"
+            v-if="authStore.hasPermission('servers', 'view')"
+          >
+            <span class="nav-label">System Incidents</span>
+          </button>
+          <button 
+            class="nav-item" 
             :class="{ active: currentTab === 'users' }"
             @click="currentTab = 'users'"
+            v-if="authStore.hasPermission('users', 'view')"
           >
             <span class="nav-label">User Management</span>
           </button>
@@ -39,6 +50,7 @@
             class="nav-item" 
             :class="{ active: currentTab === 'servers' }"
             @click="currentTab = 'servers'"
+            v-if="authStore.hasPermission('servers', 'view')"
           >
             <span class="nav-label">Server Settings</span>
           </button>
@@ -46,6 +58,7 @@
             class="nav-item" 
             :class="{ active: currentTab === 'maintenance' }"
             @click="currentTab = 'maintenance'"
+            v-if="authStore.hasPermission('maintenance', 'view')"
           >
             <span class="nav-label">Maintenance</span>
           </button>
@@ -63,6 +76,9 @@
             <span class="user-nav-avatar">{{ authStore.user.name.charAt(0).toUpperCase() }}</span>
             <span class="user-nav-name">{{ authStore.user.name }}</span>
           </div>
+          <button class="change-password-btn" @click="showChangePasswordModal = true">
+            Change Password
+          </button>
           <button class="logout-btn" @click="authStore.logout()" :disabled="authStore.loading">
             Logout
           </button>
@@ -125,35 +141,58 @@
         </section>
 
 
-        <!-- Firing Alerts Panel (Show if any alerts are active, hidden on Admin tabs) -->
-        <section class="alerts-section glass-card" v-if="activeAlerts.length > 0 && currentTab !== 'users' && currentTab !== 'servers' && currentTab !== 'maintenance'">
-          <div class="section-title">
-            <span class="pulse-dot down"></span>
-            <h2>Active System Incidents</h2>
-          </div>
-          <div class="alerts-list">
-            <div v-for="alert in activeAlerts" :key="alert.id" class="alert-item" :class="alert.severity">
-              <div class="alert-meta">
-                <span class="alert-badge" :class="alert.severity">{{ alert.severity }}</span>
-                <span class="alert-name">{{ alert.name }}</span>
-                <span class="alert-host">@ {{ alert.instance }}</span>
-              </div>
-              <p class="alert-summary">{{ alert.summary }}</p>
-              <span class="alert-time">Triggered {{ formatAlertTime(alert.started_at) }}</span>
-            </div>
-          </div>
-        </section>
-
         <!-- Tab Content: Dashboard view -->
         <section v-if="currentTab === 'dashboard'">
           <div class="section-header">
             <h2>Monitored Servers</h2>
-            <span class="nodes-count">{{ store.servers.length }} nodes total</span>
+            <span class="nodes-count">
+              <span v-if="hasActiveFilters">{{ filteredServers.length }} of </span>
+              {{ store.servers.length }} nodes total
+            </span>
           </div>
-          
-          <div class="grid">
+
+          <!-- Filters Bar -->
+          <div class="filters-bar glass-card">
+            <div class="filter-group search-group">
+              <label for="dashboard-search-input">Search Servers</label>
+              <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input 
+                  type="text" 
+                  id="dashboard-search-input" 
+                  v-model="searchQuery" 
+                  placeholder="Search by name, role, IP..."
+                />
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label for="dashboard-env-filter">Environment</label>
+              <select id="dashboard-env-filter" v-model="envFilter">
+                <option value="all">All Envs</option>
+                <option value="production">Production</option>
+                <option value="staging">Staging</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="dashboard-status-filter">Status</label>
+              <select id="dashboard-status-filter" v-model="statusFilter">
+                <option value="all">All States</option>
+                <option value="up">🟢 Online</option>
+                <option value="down">🔴 Offline</option>
+                <option value="degraded">🟡 Degraded</option>
+                <option value="unknown">⚪ Unknown</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="filteredServers.length === 0" class="empty-state glass-card">
+            <p>No monitored servers found matching current filters.</p>
+          </div>
+          <div v-else class="grid">
             <ServerCard 
-              v-for="server in store.servers" 
+              v-for="server in filteredServers" 
               :key="server.instance" 
               :server="server"
               :history-data="server.history || []"
@@ -198,11 +237,22 @@
           <ServerManagement />
         </section>
 
+        <!-- Tab Content: System Incidents -->
+        <section v-else-if="currentTab === 'incidents'" class="system-incidents-view">
+          <SystemIncidents />
+        </section>
+
         <!-- Tab Content: Maintenance Settings -->
         <section v-else class="maintenance-view">
           <MaintenanceManagement />
         </section>
       </main>
+
+      <!-- Change Password Modal -->
+      <ChangePasswordModal 
+        v-if="showChangePasswordModal" 
+        @close="showChangePasswordModal = false"
+      />
     </template>
   </div>
 </template>
@@ -218,11 +268,41 @@ import LoginView from './components/LoginView.vue';
 import UserManagement from './components/UserManagement.vue';
 import ServerManagement from './components/ServerManagement.vue';
 import MaintenanceManagement from './components/MaintenanceManagement.vue';
+import ChangePasswordModal from './components/ChangePasswordModal.vue';
+import SystemIncidents from './components/SystemIncidents.vue';
 
 const store = useServersStore();
 const authStore = useAuthStore();
-const currentTab = ref<'dashboard' | 'uptime' | 'users' | 'servers' | 'maintenance'>('dashboard');
+const currentTab = ref<'dashboard' | 'uptime' | 'users' | 'servers' | 'maintenance' | 'incidents'>('dashboard');
+const showChangePasswordModal = ref(false);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+const searchQuery = ref('');
+const statusFilter = ref<'all' | 'up' | 'down' | 'degraded' | 'unknown'>('all');
+const envFilter = ref<'all' | 'production' | 'staging'>('all');
+
+const filteredServers = computed(() => {
+  return store.servers.filter(server => {
+    // 1. Text Search Query
+    const query = searchQuery.value.trim().toLowerCase();
+    const matchesSearch = !query ||
+      server.name.toLowerCase().includes(query) ||
+      server.role.toLowerCase().includes(query) ||
+      server.instance.toLowerCase().includes(query);
+
+    // 2. Status Filter
+    const matchesStatus = statusFilter.value === 'all' || server.status === statusFilter.value;
+
+    // 3. Env Filter
+    const matchesEnv = envFilter.value === 'all' || server.env === envFilter.value;
+
+    return matchesSearch && matchesStatus && matchesEnv;
+  });
+});
+
+const hasActiveFilters = computed(() => {
+  return searchQuery.value.trim() !== '' || statusFilter.value !== 'all' || envFilter.value !== 'all';
+});
 
 const activeAlerts = computed(() => {
   return store.alerts.filter(alert => alert.state === 'firing');
@@ -232,19 +312,6 @@ const formattedSyncTime = computed(() => {
   if (!store.lastSync) return '';
   return store.lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 });
-
-function formatAlertTime(isoStr: string): string {
-  try {
-    const diffMs = Date.now() - new Date(isoStr).getTime();
-    const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 1) return 'just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHrs = Math.round(diffMin / 60);
-    return `${diffHrs}h ago`;
-  } catch (e) {
-    return isoStr;
-  }
-}
 
 function refreshAll() {
   if (!authStore.isAuthenticated) return;
@@ -265,10 +332,22 @@ function stopPolling() {
   }
 }
 
+// Helper to redirect to first allowed tab if default tab is not allowed
+function handleTabRedirection() {
+  if (!authStore.hasPermission('servers', 'view')) {
+    if (authStore.hasPermission('users', 'view')) {
+      currentTab.value = 'users';
+    } else if (authStore.hasPermission('maintenance', 'view')) {
+      currentTab.value = 'maintenance';
+    }
+  }
+}
+
 // Watch authentication status changes
 watch(() => authStore.isAuthenticated, (isAuth) => {
   if (isAuth) {
     startPolling();
+    handleTabRedirection();
   } else {
     stopPolling();
   }
@@ -278,6 +357,7 @@ onMounted(async () => {
   const isAuthed = await authStore.fetchMe();
   if (isAuthed) {
     startPolling();
+    handleTabRedirection();
   }
 });
 
@@ -504,6 +584,7 @@ onUnmounted(() => {
     padding: 6px 10px;
   }
 
+  .change-password-btn,
   .logout-btn {
     width: auto;
     padding: 8px 16px;
@@ -796,6 +877,26 @@ onUnmounted(() => {
   color: #cbd5e1;
 }
 
+.change-password-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.change-password-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #fff;
+}
+
 .logout-btn {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
@@ -819,5 +920,94 @@ onUnmounted(() => {
 .logout-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Filters Bar styling */
+.filters-bar {
+  display: flex;
+  gap: 20px;
+  padding: 20px 24px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-group {
+  flex-grow: 1;
+  min-width: 250px;
+}
+
+.filter-group label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.filter-group input {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px 10px 36px;
+  color: #fff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filter-group select {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #fff;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  min-width: 160px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  gap: 16px;
+  margin-top: 32px;
 }
 </style>

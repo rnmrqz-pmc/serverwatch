@@ -186,4 +186,120 @@ class AuthAndUserTest extends TestCase
         $response->assertStatus(403);
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
     }
+
+    public function test_user_can_change_password_with_correct_current_password()
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-secret-password'),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'old-secret-password',
+            'new_password' => 'new-secret-password',
+            'new_password_confirmation' => 'new-secret-password',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Password changed successfully.']);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-secret-password', $user->password));
+    }
+
+    public function test_user_cannot_change_password_with_incorrect_current_password()
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-secret-password'),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'incorrect-current-password',
+            'new_password' => 'new-secret-password',
+            'new_password_confirmation' => 'new-secret-password',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('old-secret-password', $user->password));
+    }
+
+    public function test_user_cannot_change_password_with_mismatched_confirmation()
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-secret-password'),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'old-secret-password',
+            'new_password' => 'new-secret-password',
+            'new_password_confirmation' => 'mismatched-password',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['new_password']);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('old-secret-password', $user->password));
+    }
+
+    public function test_user_permissions_are_enforced_on_users_index()
+    {
+        $user = User::factory()->create([
+            'permissions' => [
+                'servers' => ['view'],
+                'users' => [],
+                'maintenance' => []
+            ]
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/users');
+        $response->assertStatus(403);
+    }
+
+    public function test_user_permissions_are_enforced_on_maintenance_settings()
+    {
+        $user = User::factory()->create([
+            'permissions' => [
+                'servers' => ['view'],
+                'users' => ['view'],
+                'maintenance' => []
+            ]
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/maintenance/smtp');
+        $response->assertStatus(403);
+    }
+
+    public function test_user_permissions_are_enforced_on_server_threshold_updates()
+    {
+        $server = \App\Models\Server::create([
+            'name' => 'Test Server',
+            'ip' => '127.0.0.1',
+            'role' => 'Web',
+            'env' => 'production'
+        ]);
+
+        $user = User::factory()->create([
+            'permissions' => [
+                'servers' => ['view'],
+                'users' => ['view'],
+                'maintenance' => ['view']
+            ]
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->putJson("/api/v1/servers/{$server->id}/thresholds", [
+            'cpu_threshold_info' => 50,
+            'cpu_threshold_warning' => 60,
+            'cpu_threshold_critical' => 70,
+            'ram_threshold_info' => 50,
+            'ram_threshold_warning' => 60,
+            'ram_threshold_critical' => 70,
+            'disk_threshold_info' => 50,
+            'disk_threshold_warning' => 60,
+            'disk_threshold_critical' => 70,
+        ]);
+        $response->assertStatus(403);
+    }
 }

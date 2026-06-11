@@ -15,6 +15,10 @@ class ServerController extends Controller
 
     public function index(): JsonResponse
     {
+        if (!request()->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view servers.'], 403);
+        }
+
         $servers = Server::all()->map(function ($server) {
             $instance = $server->ip;
             $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
@@ -192,6 +196,10 @@ class ServerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'create')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to create servers.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'ip'   => 'required|string|max:255|unique:servers,ip',
@@ -206,6 +214,10 @@ class ServerController extends Controller
 
     public function show(Server $server): JsonResponse
     {
+        if (!request()->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view servers.'], 403);
+        }
+
         $instance = $server->ip;
         $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
         try {
@@ -376,6 +388,10 @@ class ServerController extends Controller
 
     public function update(Request $request, Server $server): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update servers.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'ip'   => [
@@ -396,6 +412,10 @@ class ServerController extends Controller
 
     public function destroy(Server $server): JsonResponse
     {
+        if (!request()->user()->hasPermission('servers', 'delete')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to delete servers.'], 403);
+        }
+
         $server->delete();
 
         return response()->json(['message' => 'Server deleted successfully']);
@@ -410,6 +430,10 @@ class ServerController extends Controller
      */
     public function updateDbCredentials(Request $request, Server $server): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update servers.'], 403);
+        }
+
         $validated = $request->validate([
             'db_type'     => 'required|string|in:none,mariadb,mysql,postgresql',
             'db_host'     => 'nullable|string|max:255',
@@ -470,6 +494,10 @@ class ServerController extends Controller
      */
     public function updateSshCredentials(Request $request, Server $server): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update servers.'], 403);
+        }
+
         $validated = $request->validate([
             'ssh_user'     => 'nullable|string|max:255',
             'ssh_port'     => 'nullable|integer|min:1|max:65535',
@@ -512,6 +540,10 @@ class ServerController extends Controller
      */
     public function updateThresholds(Request $request, Server $server): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'update')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update servers.'], 403);
+        }
+
         $validated = $request->validate([
             'cpu_threshold_info'      => 'required|integer|min:1|max:100',
             'cpu_threshold_warning'   => 'required|integer|min:1|max:100',

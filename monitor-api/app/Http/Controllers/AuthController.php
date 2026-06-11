@@ -33,6 +33,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'permissions' => $user->permissions,
             ]
         ]);
     }
@@ -50,6 +51,31 @@ class AuthController extends Controller
             'id' => $request->user()->id,
             'name' => $request->user()->name,
             'email' => $request->user()->email,
+            'permissions' => $request->user()->permissions,
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The provided current password does not match our records.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($request->new_password),
+        ])->save();
+
+        return response()->json([
+            'message' => 'Password changed successfully.'
         ]);
     }
 }

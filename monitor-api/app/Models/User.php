@@ -23,6 +23,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'permissions',
     ];
 
     /**
@@ -45,6 +46,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'permissions' => 'array',
         ];
+    }
+
+    public function hasPermission(string $module, string $action): bool
+    {
+        if (is_null($this->permissions)) {
+            return true;
+        }
+
+        return isset($this->permissions[$module]) && in_array($action, $this->permissions[$module]);
     }
 }

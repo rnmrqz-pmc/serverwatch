@@ -14,6 +14,10 @@ class UptimeController extends Controller
 
     public function history(Request $request, string $instance): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view server uptime history.'], 403);
+        }
+
         $days = (int) $request->query('days', 90);
         $end = now()->timestamp;
         $start = now()->subDays($days)->timestamp;
@@ -87,6 +91,10 @@ class UptimeController extends Controller
 
     public function summary(Request $request): JsonResponse
     {
+        if (!$request->user()->hasPermission('servers', 'view')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to view server uptime summary.'], 403);
+        }
+
         $days = (int) $request->query('days', 90);
         $configuredServers = config('monitoring.servers', []);
 

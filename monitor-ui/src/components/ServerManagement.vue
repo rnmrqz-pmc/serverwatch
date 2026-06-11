@@ -6,7 +6,11 @@
         <h2>Server Target Settings</h2>
         <p class="section-desc">Manage the target nodes monitored by Prometheus and Uptime metrics.</p>
       </div>
-      <button class="add-server-btn" @click="openAddModal">
+      <button 
+        class="add-server-btn" 
+        @click="openAddModal"
+        v-if="authStore.hasPermission('servers', 'create')"
+      >
         <span class="plus-icon">+</span> Add Target Node
       </button>
     </div>
@@ -87,19 +91,44 @@
             </td>
             <td class="actions-col">
               <div class="action-buttons">
-                <button class="action-btn edit-btn" @click="openEditModal(srv)" title="Edit Target">
+                <button 
+                  class="action-btn edit-btn" 
+                  @click="openEditModal(srv)" 
+                  :disabled="!authStore.hasPermission('servers', 'update')"
+                  title="Edit Target"
+                >
                   ✏️
                 </button>
-                <button class="action-btn db-btn" @click="openDbModal(srv)" title="Configure Database Credentials">
+                <button 
+                  class="action-btn db-btn" 
+                  @click="openDbModal(srv)" 
+                  :disabled="!authStore.hasPermission('servers', 'update')"
+                  title="Configure Database Credentials"
+                >
                   🗄️
                 </button>
-                <button class="action-btn ssh-btn" @click="openSshModal(srv)" title="Configure SSH Credentials">
+                <button 
+                  class="action-btn ssh-btn" 
+                  @click="openSshModal(srv)" 
+                  :disabled="!authStore.hasPermission('servers', 'update')"
+                  title="Configure SSH Credentials"
+                >
                   🔑
                 </button>
-                <button class="action-btn alert-btn" @click="openThresholdsModal(srv)" title="Configure Alert Thresholds">
+                <button 
+                  class="action-btn alert-btn" 
+                  @click="openThresholdsModal(srv)" 
+                  :disabled="!authStore.hasPermission('servers', 'update')"
+                  title="Configure Alert Thresholds"
+                >
                   🔔
                 </button>
-                <button class="action-btn delete-btn" @click="confirmDelete(srv)" title="Delete Target">
+                <button 
+                  class="action-btn delete-btn" 
+                  @click="confirmDelete(srv)" 
+                  :disabled="!authStore.hasPermission('servers', 'delete')"
+                  title="Delete Target"
+                >
                   🗑️
                 </button>
               </div>
@@ -218,6 +247,7 @@
 import { ref, onMounted } from 'vue';
 import { apiFetch } from '../utils/api';
 import { useServersStore } from '../stores/servers';
+import { useAuthStore } from '../stores/auth';
 import DatabaseCredentialsModal from './DatabaseCredentialsModal.vue';
 import SshCredentialsModal from './SshCredentialsModal.vue';
 import ThresholdsModal from './ThresholdsModal.vue';
@@ -249,6 +279,7 @@ interface ServerNode {
 }
 
 const serversStore = useServersStore();
+const authStore = useAuthStore();
 const servers = ref<ServerNode[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
@@ -711,6 +742,12 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);
   transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .edit-btn:hover {
