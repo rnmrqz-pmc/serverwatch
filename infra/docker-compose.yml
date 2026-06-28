@@ -26,7 +26,7 @@ services:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     networks: [monitor]
 
   alertmanager:
@@ -39,7 +39,7 @@ services:
     volumes:
       - ./alertmanager:/etc/alertmanager
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     networks: [monitor]
 
   grafana:
@@ -55,7 +55,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     ports:
-      - "3010:3000"
+      - "127.0.0.1:3010:3000"
     networks: [monitor]
 
   uptime-kuma:
@@ -65,7 +65,7 @@ services:
     volumes:
       - uptime_kuma_data:/app/data
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     networks: [monitor]
 
   # ── Mock target: Node Exporter ──────────────────────────────────────────────
@@ -74,7 +74,7 @@ services:
     container_name: node-exporter
     restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     networks: [monitor]
 
   # ── Mock target: MariaDB database ─────────────────────────────────────────
@@ -101,7 +101,7 @@ services:
     volumes:
       - ./mysqld-exporter/.my.cnf:/etc/mysqld-exporter/.my.cnf:ro
     ports:
-      - "9104:9104"
+      - "127.0.0.1:9104:9104"
     networks: [monitor]
     depends_on:
       - mariadb
