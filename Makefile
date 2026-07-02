@@ -59,14 +59,14 @@ setup-prod:
 start: stop
 	@echo "$(YELLOW)=== Starting Docker Stack (Prometheus, Grafana, Uptime Kuma) ===$(RESET)"
 	docker compose -f infra/docker-compose.yml up -d
-	@echo "$(YELLOW)=== Starting Laravel API (http://localhost:8000) ===$(RESET)"
-	cd monitor-api && php artisan serve --port=8000 > /dev/null 2>&1 &
+	@echo "$(YELLOW)=== Starting Laravel API (http://localhost:8080) ===$(RESET)"
+	cd monitor-api && php artisan serve --port=8080 > /dev/null 2>&1 &
 	@echo "$(YELLOW)=== Starting Vue 3 UI (http://localhost:5173) ===$(RESET)"
 	cd monitor-ui && npm run dev -- --port 5173 --host 0.0.0.0 > /dev/null 2>&1 &
 	@sleep 2
 	@echo "$(GREEN)✓ Stack is active!$(RESET)"
 	@echo "  - $(CYAN)Vue 3 UI:$(RESET)      http://localhost:5173"
-	@echo "  - $(CYAN)Laravel API:$(RESET)   http://localhost:8000/api/v1/servers"
+	@echo "  - $(CYAN)Laravel API:$(RESET)   http://localhost:8080/api/v1/servers"
 	@echo "  - $(CYAN)Prometheus:$(RESET)    http://localhost:9091"
 	@echo "  - $(CYAN)Grafana:$(RESET)       http://localhost:3010"
 	@echo "  - $(CYAN)Uptime Kuma:$(RESET)   http://localhost:3001"
@@ -93,7 +93,7 @@ status:
 	docker compose -f infra/docker-compose.yml ps
 	@echo ""
 	@echo "$(YELLOW)=== Local Port Allocation ===$(RESET)"
-	@echo "Port 8000 (API):      $$(lsof -i :8000 -t | wc -l | tr -d ' ') process(es)"
+	@echo "Port 8080 (API):      $$(lsof -i :8080 -t | wc -l | tr -d ' ') process(es)"
 	@echo "Port 5173 (Vue UI):   $$(lsof -i :5173 -t | wc -l | tr -d ' ') process(es)"
 
 clean:

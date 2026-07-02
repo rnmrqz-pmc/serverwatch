@@ -36,7 +36,9 @@ class UserController extends Controller
         $defaultPermissions = [
             'servers' => ['view', 'create', 'update', 'delete'],
             'users' => ['view', 'create', 'update', 'delete'],
-            'maintenance' => ['view', 'update']
+            'maintenance' => ['view', 'update'],
+            'uptime' => ['view'],
+            'incidents' => ['view']
         ];
 
         $user = User::create([
@@ -47,8 +49,30 @@ class UserController extends Controller
         ]);
 
         try {
-            Mail::raw("Your BIT DevOps ServerWatcher account has been created.\n\nHere are your login credentials:\nEmail: {$user->email}\nPassword: {$plainPassword}\n\nPlease change your password after logging in.", function ($message) use ($user) {
-                $message->to($user->email)->subject('Your ServerWatcher Account Credentials');
+            $appUrl = env('FRONTEND_URL');
+            if (!$appUrl) {
+                $baseAppUrl = rtrim(config('app.url'), '/');
+                if ($baseAppUrl === 'http://localhost' || $baseAppUrl === 'http://127.0.0.1') {
+                    $appUrl = 'http://localhost:5173/watcher/';
+                } else {
+                    $appUrl = $baseAppUrl . '/watcher/';
+                }
+            }
+            $appUrl = rtrim($appUrl, '/') . '/';
+
+            $data = [
+                'subject'   => 'Your ServerWatcher Account Credentials',
+                'appUrl'    => $appUrl,
+                'title'     => 'Account Created',
+                'greeting'  => "Hello {$user->name},",
+                'bodyText'  => 'Your BIT DevOps ServerWatcher account has been created. Use the credentials below to log in to your dashboard.',
+                'email'     => $user->email,
+                'password'  => $plainPassword,
+                'note'      => 'For security, please change your password after logging in.',
+            ];
+
+            Mail::send('emails.credentials', $data, function ($message) use ($user, $data) {
+                $message->to($user->email)->subject($data['subject']);
             });
         } catch (\Exception $e) {
             $user->delete();
@@ -155,8 +179,30 @@ class UserController extends Controller
         $user->save();
 
         try {
-            Mail::raw("Your BIT DevOps ServerWatcher account password has been reset.\n\nHere is your new password:\n{$newPassword}\n\nPlease change your password after logging in.", function ($message) use ($user) {
-                $message->to($user->email)->subject('Your ServerWatcher Password Reset');
+            $appUrl = env('FRONTEND_URL');
+            if (!$appUrl) {
+                $baseAppUrl = rtrim(config('app.url'), '/');
+                if ($baseAppUrl === 'http://localhost' || $baseAppUrl === 'http://127.0.0.1') {
+                    $appUrl = 'http://localhost:5173/watcher/';
+                } else {
+                    $appUrl = $baseAppUrl . '/watcher/';
+                }
+            }
+            $appUrl = rtrim($appUrl, '/') . '/';
+
+            $data = [
+                'subject'   => 'Your ServerWatcher Password Reset',
+                'appUrl'    => $appUrl,
+                'title'     => 'Password Reset',
+                'greeting'  => "Hello {$user->name},",
+                'bodyText'  => 'Your BIT DevOps ServerWatcher account password has been reset. Here are your new credentials:',
+                'email'     => $user->email,
+                'password'  => $newPassword,
+                'note'      => 'For security, please change your password after logging in.',
+            ];
+
+            Mail::send('emails.credentials', $data, function ($message) use ($user, $data) {
+                $message->to($user->email)->subject($data['subject']);
             });
         } catch (\Exception $e) {
             $user->password = $oldPasswordHash;

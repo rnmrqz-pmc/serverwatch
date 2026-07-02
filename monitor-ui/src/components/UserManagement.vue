@@ -193,6 +193,26 @@
                   </label>
                 </div>
               </div>
+
+              <!-- Uptime History -->
+              <div class="matrix-row">
+                <span class="matrix-module">Uptime History</span>
+                <div class="matrix-checkboxes">
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.uptime" value="view" :disabled="authStore.user?.id === form.id" /> View
+                  </label>
+                </div>
+              </div>
+
+              <!-- System Incidents -->
+              <div class="matrix-row">
+                <span class="matrix-module">System Incidents</span>
+                <div class="matrix-checkboxes">
+                  <label class="matrix-checkbox-label">
+                    <input type="checkbox" v-model="form.permissions.incidents" value="view" :disabled="authStore.user?.id === form.id" /> View
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -254,6 +274,8 @@ interface User {
     servers: string[];
     users: string[];
     maintenance: string[];
+    uptime?: string[];
+    incidents?: string[];
   };
   created_at: string;
 }
@@ -282,7 +304,9 @@ const form = ref({
   permissions: {
     servers: ['view', 'create', 'update', 'delete'],
     users: ['view', 'create', 'update', 'delete'],
-    maintenance: ['view', 'update']
+    maintenance: ['view', 'update'],
+    uptime: ['view'],
+    incidents: ['view']
   }
 });
 
@@ -323,7 +347,9 @@ function openAddModal() {
     permissions: {
       servers: ['view', 'create', 'update', 'delete'],
       users: ['view', 'create', 'update', 'delete'],
-      maintenance: ['view', 'update']
+      maintenance: ['view', 'update'],
+      uptime: ['view'],
+      incidents: ['view']
     }
   };
   showModal.value = true;
@@ -336,11 +362,16 @@ function openEditModal(user: User) {
     name: user.name,
     email: user.email,
     password: '',
-    permissions: user.permissions ? JSON.parse(JSON.stringify(user.permissions)) : {
-      servers: ['view', 'create', 'update', 'delete'],
-      users: ['view', 'create', 'update', 'delete'],
-      maintenance: ['view', 'update']
-    }
+    permissions: (() => {
+      const perms = user.permissions ? JSON.parse(JSON.stringify(user.permissions)) : {};
+      return {
+        servers: perms.servers || ['view', 'create', 'update', 'delete'],
+        users: perms.users || ['view', 'create', 'update', 'delete'],
+        maintenance: perms.maintenance || ['view', 'update'],
+        uptime: perms.uptime || ['view'],
+        incidents: perms.incidents || ['view']
+      };
+    })()
   };
   showModal.value = true;
 }

@@ -10,6 +10,8 @@ export interface User {
     servers: string[];
     users: string[];
     maintenance: string[];
+    uptime?: string[];
+    incidents?: string[];
   };
 }
 
@@ -98,6 +100,13 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value) return false;
     if (!user.value.permissions) return true; // fallback
     const modulePerms = (user.value.permissions as any)[module];
+    if (modulePerms === undefined) {
+      // Legacy compatibility: if uptime/incidents are missing, fallback to servers.view
+      if (module === 'uptime' || module === 'incidents') {
+        return hasPermission('servers', 'view');
+      }
+      return false;
+    }
     return Array.isArray(modulePerms) && modulePerms.includes(action);
   }
 

@@ -26,7 +26,7 @@
             class="nav-item" 
             :class="{ active: currentTab === 'uptime' }"
             @click="currentTab = 'uptime'"
-            v-if="authStore.hasPermission('servers', 'view')"
+            v-if="authStore.hasPermission('uptime', 'view')"
           >
             <span class="nav-label">Uptime History</span>
           </button>
@@ -34,7 +34,7 @@
             class="nav-item" 
             :class="{ active: currentTab === 'incidents' }"
             @click="currentTab = 'incidents'"
-            v-if="authStore.hasPermission('servers', 'view')"
+            v-if="authStore.hasPermission('incidents', 'view')"
           >
             <span class="nav-label">System Incidents</span>
           </button>
@@ -203,12 +203,81 @@
         <!-- Tab Content: Uptime Timeline Details -->
         <section v-else-if="currentTab === 'uptime'" class="timeline-details-view">
           <div class="section-header">
-            <h2>Uptime Timeline (Last 90 Days)</h2>
+            <h2>Uptime Timeline</h2>
             <p class="section-desc">Historical timeline logs for system targets.</p>
           </div>
 
+          <!-- Uptime Filters -->
+          <div class="filters-card glass-card">
+            <div class="filters-grid">
+              <!-- Server Filter -->
+              <div class="filter-group">
+                <label class="filter-label">Filter by Servers</label>
+                <div class="server-checkboxes">
+                  <label class="checkbox-pill-wrapper">
+                    <input 
+                      type="checkbox" 
+                      :checked="selectedUptimeServers.length === store.servers.length"
+                      @change="toggleSelectAllServers"
+                      class="hidden-checkbox"
+                    />
+                    <span class="pill-checkbox">All Servers</span>
+                  </label>
+                  <label 
+                    v-for="server in store.servers" 
+                    :key="server.instance"
+                    class="checkbox-pill-wrapper"
+                  >
+                    <input 
+                      type="checkbox" 
+                      v-model="selectedUptimeServers"
+                      :value="server.instance"
+                      class="hidden-checkbox"
+                    />
+                    <span class="pill-checkbox">{{ server.name }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Date Filter -->
+              <div class="filter-group">
+                <label class="filter-label">Filter by Date Range</label>
+                <div class="date-inputs-wrapper">
+                  <div class="date-input-container">
+                    <span class="date-label">Start</span>
+                    <input 
+                      type="date" 
+                      v-model="uptimeStartDate" 
+                      :min="minHistoryDate"
+                      :max="uptimeEndDate || maxHistoryDate"
+                      class="date-input"
+                    />
+                  </div>
+                  <div class="date-input-container">
+                    <span class="date-label">End</span>
+                    <input 
+                      type="date" 
+                      v-model="uptimeEndDate" 
+                      :min="uptimeStartDate || minHistoryDate"
+                      :max="maxHistoryDate"
+                      class="date-input"
+                    />
+                  </div>
+                </div>
+                <div class="preset-buttons">
+                  <button @click="setPreset(7)" class="preset-btn" :class="{ active: isPresetActive(7) }">7D</button>
+                  <button @click="setPreset(30)" class="preset-btn" :class="{ active: isPresetActive(30) }">30D</button>
+                  <button @click="setPreset(90)" class="preset-btn" :class="{ active: isPresetActive(90) }">90D</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="timeline-container glass-card">
-            <div v-for="server in store.servers" :key="server.instance" class="timeline-row">
+            <div v-if="filteredTimelineServers.length === 0" class="empty-state" style="padding: 40px; text-align: center; color: #64748b;">
+              No servers selected or match the criteria.
+            </div>
+            <div v-else v-for="server in filteredTimelineServers" :key="server.instance" class="timeline-row">
               <div class="timeline-info">
                 <div>
                   <h3>{{ server.name }}</h3>
@@ -221,7 +290,13 @@
                 </div>
               </div>
               <div class="timeline-chart">
-                <UptimeBar :server-name="server.name" :history="server.history || []" :days="90" />
+                <UptimeBar 
+                  :server-name="server.name" 
+                  :history="server.filteredHistory || []" 
+                  :days="server.filteredHistory.length" 
+                  :start-label="formatDisplayDate(uptimeStartDate)"
+                  :end-label="formatDisplayDate(uptimeEndDate)"
+                />
               </div>
             </div>
           </div>
@@ -281,6 +356,110 @@ const searchQuery = ref('');
 const statusFilter = ref<'all' | 'up' | 'down' | 'degraded' | 'unknown'>('all');
 const envFilter = ref<'all' | 'production' | 'staging'>('all');
 
+// Uptime timeline filters
+const selectedUptimeServers = ref<string[]>([]);
+const uptimeStartDate = ref('');
+const uptimeEndDate = ref('');
+
+const allDates = computed(() => {
+  const dates = new Set<string>();
+  store.servers.forEach(s => {
+    (s.history || []).forEach(d => {
+      if (d.date) dates.add(d.date);
+    });
+  });
+  return Array.from(dates).sort();
+});
+
+const minHistoryDate = computed(() => {
+  if (allDates.value.length > 0) return allDates.value[0];
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  return d.toISOString().split('T')[0];
+});
+
+const maxHistoryDate = computed(() => {
+  if (allDates.value.length > 0) return allDates.value[allDates.value.length - 1];
+  return new Date().toISOString().split('T')[0];
+});
+
+watch(() => store.servers, (newServers) => {
+  if (newServers.length > 0) {
+    if (selectedUptimeServers.value.length === 0) {
+      selectedUptimeServers.value = newServers.map(s => s.instance);
+    }
+    if (!uptimeStartDate.value) {
+      uptimeStartDate.value = minHistoryDate.value;
+    }
+    if (!uptimeEndDate.value) {
+      uptimeEndDate.value = maxHistoryDate.value;
+    }
+  }
+}, { immediate: true });
+
+const filteredTimelineServers = computed(() => {
+  const filteredList = store.servers.filter(s => selectedUptimeServers.value.includes(s.instance));
+  return filteredList.map(s => {
+    const filteredHistory = (s.history || []).filter(day => {
+      const dayDate = day.date;
+      const start = uptimeStartDate.value;
+      const end = uptimeEndDate.value;
+      
+      if (start && dayDate < start) return false;
+      if (end && dayDate > end) return false;
+      return true;
+    });
+
+    return {
+      ...s,
+      filteredHistory
+    };
+  });
+});
+
+function toggleSelectAllServers(e: Event) {
+  const checked = (e.target as HTMLInputElement).checked;
+  if (checked) {
+    selectedUptimeServers.value = store.servers.map(s => s.instance);
+  } else {
+    selectedUptimeServers.value = [];
+  }
+}
+
+function setPreset(days: number) {
+  const end = maxHistoryDate.value;
+  const endDate = new Date(end);
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - (days - 1));
+  const startStr = startDate.toISOString().split('T')[0];
+  
+  uptimeStartDate.value = startStr < minHistoryDate.value ? minHistoryDate.value : startStr;
+  uptimeEndDate.value = end;
+}
+
+function isPresetActive(days: number): boolean {
+  const end = maxHistoryDate.value;
+  const endDate = new Date(end);
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - (days - 1));
+  const startStr = startDate.toISOString().split('T')[0];
+  
+  const expectedStart = startStr < minHistoryDate.value ? minHistoryDate.value : startStr;
+  return uptimeStartDate.value === expectedStart && uptimeEndDate.value === end;
+}
+
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  } catch {
+    return dateStr;
+  }
+}
+
 const filteredServers = computed(() => {
   return store.servers.filter(server => {
     // 1. Text Search Query
@@ -335,7 +514,11 @@ function stopPolling() {
 // Helper to redirect to first allowed tab if default tab is not allowed
 function handleTabRedirection() {
   if (!authStore.hasPermission('servers', 'view')) {
-    if (authStore.hasPermission('users', 'view')) {
+    if (authStore.hasPermission('uptime', 'view')) {
+      currentTab.value = 'uptime';
+    } else if (authStore.hasPermission('incidents', 'view')) {
+      currentTab.value = 'incidents';
+    } else if (authStore.hasPermission('users', 'view')) {
       currentTab.value = 'users';
     } else if (authStore.hasPermission('maintenance', 'view')) {
       currentTab.value = 'maintenance';
@@ -1009,5 +1192,146 @@ onUnmounted(() => {
   color: #94a3b8;
   gap: 16px;
   margin-top: 32px;
+}
+
+/* Uptime Timeline Filters Styles */
+.filters-card {
+  padding: 24px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 992px) {
+  .filters-grid {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.server-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-pill-wrapper {
+  cursor: pointer;
+}
+
+.hidden-checkbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.pill-checkbox {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.hidden-checkbox:checked + .pill-checkbox {
+  color: #fff;
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.hidden-checkbox:hover + .pill-checkbox {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.date-inputs-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.date-input-container {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.date-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.date-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.preset-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.preset-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #fff;
 }
 </style>

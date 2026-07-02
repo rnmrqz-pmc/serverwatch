@@ -56,6 +56,14 @@ class User extends Authenticatable
             return true;
         }
 
-        return isset($this->permissions[$module]) && in_array($action, $this->permissions[$module]);
+        if (!isset($this->permissions[$module])) {
+            // Legacy compatibility: if uptime/incidents are missing, fallback to servers.view
+            if ($module === 'uptime' || $module === 'incidents') {
+                return $this->hasPermission('servers', 'view');
+            }
+            return false;
+        }
+
+        return in_array($action, $this->permissions[$module]);
     }
 }

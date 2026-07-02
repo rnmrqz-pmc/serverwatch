@@ -32,7 +32,7 @@ scrape_configs:
 
   # Production web nodes — Node Exporter (system metrics)
   # Prometheus runs in Docker; the Laravel API must be reachable from the
-  # container at host.docker.internal:8000 for HTTP service discovery.
+  # container at host.docker.internal:8080 for HTTP service discovery.
   - job_name: 'node'
     http_sd_configs:
       - url: 'https://172.22.2.139/api/prometheus/targets/node'

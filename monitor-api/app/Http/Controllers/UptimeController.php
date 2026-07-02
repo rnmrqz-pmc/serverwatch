@@ -14,7 +14,7 @@ class UptimeController extends Controller
 
     public function history(Request $request, string $instance): JsonResponse
     {
-        if (!$request->user()->hasPermission('servers', 'view')) {
+        if (!$request->user()->hasPermission('uptime', 'view')) {
             return response()->json(['message' => 'Unauthorized. You do not have permission to view server uptime history.'], 403);
         }
 
@@ -91,7 +91,7 @@ class UptimeController extends Controller
 
     public function summary(Request $request): JsonResponse
     {
-        if (!$request->user()->hasPermission('servers', 'view')) {
+        if (!$request->user()->hasPermission('uptime', 'view')) {
             return response()->json(['message' => 'Unauthorized. You do not have permission to view server uptime summary.'], 403);
         }
 

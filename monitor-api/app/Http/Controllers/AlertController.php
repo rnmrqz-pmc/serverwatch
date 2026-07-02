@@ -17,7 +17,7 @@ class AlertController extends Controller
 
     public function index(): JsonResponse
     {
-        if (!request()->user()->hasPermission('servers', 'view')) {
+        if (!request()->user()->hasPermission('incidents', 'view')) {
             return response()->json(['message' => 'Unauthorized. You do not have permission to view alert incidents.'], 403);
         }
 
@@ -44,7 +44,8 @@ class AlertController extends Controller
 
             return response()->json($formatted);
         } catch (\Exception $e) {
-            return response()->json(collect([
+            $thresholdAlerts = \Illuminate\Support\Facades\Cache::get('active_threshold_breaches', []);
+            $errors = collect([
                 [
                     'id'          => 'mock-alert-err',
                     'name'        => 'AlertmanagerOffline',
@@ -55,13 +56,15 @@ class AlertController extends Controller
                     'started_at'  => now()->toIso8601String(),
                     'resolved_at' => null
                 ]
-            ]));
+            ])->concat($thresholdAlerts);
+
+            return response()->json($errors);
         }
     }
 
     public function active(): JsonResponse
     {
-        if (!request()->user()->hasPermission('servers', 'view')) {
+        if (!request()->user()->hasPermission('incidents', 'view')) {
             return response()->json(['message' => 'Unauthorized. You do not have permission to view alert incidents.'], 403);
         }
 

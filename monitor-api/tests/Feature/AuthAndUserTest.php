@@ -65,10 +65,11 @@ class AuthAndUserTest extends TestCase
 
     public function test_admin_can_perform_user_management_crud()
     {
-        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+        \Illuminate\Support\Facades\Mail::shouldReceive('send')
             ->once()
             ->with(
-                \Mockery::on(fn($content) => str_contains($content, 'created')),
+                'emails.credentials',
+                \Mockery::on(fn($data) => str_contains($data['bodyText'], 'created')),
                 \Mockery::on(fn($callback) => true)
             );
 
@@ -114,7 +115,7 @@ class AuthAndUserTest extends TestCase
         $admin = User::factory()->create();
 
         // Mock Mail to throw exception
-        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+        \Illuminate\Support\Facades\Mail::shouldReceive('send')
             ->once()
             ->andThrow(new \Exception('SMTP connection timeout'));
 
@@ -132,10 +133,11 @@ class AuthAndUserTest extends TestCase
 
     public function test_admin_can_reset_user_password()
     {
-        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+        \Illuminate\Support\Facades\Mail::shouldReceive('send')
             ->once()
             ->with(
-                \Mockery::on(fn($content) => str_contains($content, 'reset')),
+                'emails.credentials',
+                \Mockery::on(fn($data) => str_contains($data['bodyText'], 'reset')),
                 \Mockery::on(fn($callback) => true)
             );
 
@@ -164,7 +166,7 @@ class AuthAndUserTest extends TestCase
         ]);
 
         // Mock Mail to throw exception
-        \Illuminate\Support\Facades\Mail::shouldReceive('raw')
+        \Illuminate\Support\Facades\Mail::shouldReceive('send')
             ->once()
             ->andThrow(new \Exception('SMTP connection timeout'));
 
@@ -300,6 +302,38 @@ class AuthAndUserTest extends TestCase
             'disk_threshold_warning' => 60,
             'disk_threshold_critical' => 70,
         ]);
+        $response->assertStatus(403);
+    }
+
+    public function test_user_permissions_are_enforced_on_uptime_history()
+    {
+        $user = User::factory()->create([
+            'permissions' => [
+                'servers' => ['view'],
+                'users' => ['view'],
+                'maintenance' => ['view'],
+                'uptime' => [],
+                'incidents' => ['view']
+            ]
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/uptime/127.0.0.1');
+        $response->assertStatus(403);
+    }
+
+    public function test_user_permissions_are_enforced_on_system_incidents()
+    {
+        $user = User::factory()->create([
+            'permissions' => [
+                'servers' => ['view'],
+                'users' => ['view'],
+                'maintenance' => ['view'],
+                'uptime' => ['view'],
+                'incidents' => []
+            ]
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/alerts');
         $response->assertStatus(403);
     }
 }
