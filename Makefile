@@ -1,4 +1,4 @@
-.PHONY: help setup setup-prod start stop build migrate status clean
+.PHONY: help setup setup-prod start stop build migrate status cron clean
 
 # Colors for terminal styling
 YELLOW := \033[33m
@@ -19,6 +19,7 @@ help:
 	@echo "  $(GREEN)build$(RESET)        Build Vue UI production static files"
 	@echo "  $(GREEN)migrate$(RESET)      Run database migrations inside Laravel API"
 	@echo "  $(GREEN)status$(RESET)       Check active Docker containers and server ports"
+	@echo "  $(GREEN)cron$(RESET)         Auto-configure the system cron job to run the Laravel scheduler"
 	@echo "  $(GREEN)clean$(RESET)        Clear caches, delete node_modules and vendor directories"
 
 setup:
@@ -95,6 +96,13 @@ status:
 	@echo "$(YELLOW)=== Local Port Allocation ===$(RESET)"
 	@echo "Port 8080 (API):      $$(lsof -i :8080 -t | wc -l | tr -d ' ') process(es)"
 	@echo "Port 5173 (Vue UI):   $$(lsof -i :5173 -t | wc -l | tr -d ' ') process(es)"
+
+cron:
+	@echo "$(YELLOW)=== Configuring Laravel Scheduler Cron Job ===$(RESET)"
+	@(crontab -l 2>/dev/null | grep -F "monitor-api && php artisan schedule:run" >/dev/null) && echo "$(GREEN)✓ Cron job is already configured.$(RESET)" || ( \
+		(crontab -l 2>/dev/null; echo "* * * * * cd $(shell pwd)/monitor-api && php artisan schedule:run >> /dev/null 2>&1") | crontab - ; \
+		echo "$(GREEN)✓ Cron job added successfully!$(RESET)" \
+	)
 
 clean:
 	@echo "$(YELLOW)=== Cleaning Cache & Node Modules ===$(RESET)"
