@@ -26,7 +26,7 @@ class UptimeController extends Controller
 
         // Query the 'up' metric with a 1-day step to get daily availability points
         $results = $this->prometheus->queryRange(
-            query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d])",
+            query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d]))",
             start: $start,
             end:   $end,
             step:  '86400'
@@ -39,7 +39,7 @@ class UptimeController extends Controller
             $server = \App\Models\Server::where('ip', $instance)->first();
             $isUp = false;
             try {
-                $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+                $upQuery = $this->prometheus->query("max(up{instance=\"{$prometheusInstance}\"})");
                 $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
             } catch (\Exception $e) {
                 $isUp = false;
@@ -106,7 +106,7 @@ class UptimeController extends Controller
             $start = now()->subDays($days)->timestamp;
 
             $results = $this->prometheus->queryRange(
-                query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d])",
+                query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d]))",
                 start: $start,
                 end:   $end,
                 step:  '86400'
@@ -116,7 +116,7 @@ class UptimeController extends Controller
 
             $isUp = false;
             try {
-                $latestUp = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+                $latestUp = $this->prometheus->query("max(up{instance=\"{$prometheusInstance}\"})");
                 $isUp = ((float)($latestUp[0]['value'][1] ?? 0)) === 1.0;
             } catch (\Exception $e) {
                 $isUp = false;

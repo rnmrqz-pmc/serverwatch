@@ -24,7 +24,7 @@ class ServerController extends Controller
             $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
 
             try {
-                $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+                $upQuery = $this->prometheus->query("max(up{instance=\"{$prometheusInstance}\"})");
                 $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
             } catch (\Exception $e) {
                 $isUp = false;
@@ -73,7 +73,7 @@ class ServerController extends Controller
 
             try {
                 $results = $this->prometheus->queryRange(
-                    query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d])",
+                    query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d]))",
                     start: $start,
                     end:   $end,
                     step:  '86400'
@@ -116,7 +116,7 @@ class ServerController extends Controller
             $start24h = now()->subRealDay()->timestamp;
             try {
                 $results24h = $this->prometheus->queryRange(
-                    query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h])",
+                    query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h]))",
                     start: $start24h,
                     end:   $end,
                     step:  '3600'
@@ -221,7 +221,7 @@ class ServerController extends Controller
         $instance = $server->ip;
         $prometheusInstance = str_contains($instance, ':') ? $instance : "{$instance}:9100";
         try {
-            $upQuery = $this->prometheus->query("up{instance=\"{$prometheusInstance}\"}");
+            $upQuery = $this->prometheus->query("max(up{instance=\"{$prometheusInstance}\"})");
             $isUp = ((float)($upQuery[0]['value'][1] ?? 0)) === 1.0;
         } catch (\Exception $e) {
             $isUp = false;
@@ -269,7 +269,7 @@ class ServerController extends Controller
 
         try {
             $results = $this->prometheus->queryRange(
-                query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d])",
+                query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1d]))",
                 start: $start,
                 end:   $end,
                 step:  '86400'
@@ -312,7 +312,7 @@ class ServerController extends Controller
         $start24h = now()->subRealDay()->timestamp;
         try {
             $results24h = $this->prometheus->queryRange(
-                query: "avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h])",
+                query: "max by (instance) (avg_over_time(up{instance=\"{$prometheusInstance}\"}[1h]))",
                 start: $start24h,
                 end:   $end,
                 step:  '3600'
