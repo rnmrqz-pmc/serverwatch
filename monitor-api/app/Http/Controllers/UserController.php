@@ -53,7 +53,7 @@ class UserController extends Controller
             if (!$appUrl) {
                 $baseAppUrl = rtrim(config('app.url'), '/');
                 if ($baseAppUrl === 'http://localhost' || $baseAppUrl === 'http://127.0.0.1') {
-                    $appUrl = 'http://localhost:5173/watcher/';
+                    $appUrl = 'http://localhost:5174/watcher/';
                 } else {
                     $appUrl = $baseAppUrl . '/watcher/';
                 }
@@ -183,7 +183,7 @@ class UserController extends Controller
             if (!$appUrl) {
                 $baseAppUrl = rtrim(config('app.url'), '/');
                 if ($baseAppUrl === 'http://localhost' || $baseAppUrl === 'http://127.0.0.1') {
-                    $appUrl = 'http://localhost:5173/watcher/';
+                    $appUrl = 'http://localhost:5174/watcher/';
                 } else {
                     $appUrl = $baseAppUrl . '/watcher/';
                 }

@@ -24,7 +24,7 @@
       <div v-if="errorMsg"   class="feedback-banner error">⚠️ {{ errorMsg }}</div>
 
       <form @submit.prevent="handleSubmit" class="thresholds-form">
-
+        <div class="form-view">
         <!-- CPU Section -->
         <div class="metric-section">
           <div class="metric-section-title">
@@ -142,6 +142,30 @@
           </div>
         </div>
 
+        <!-- Alert Recipients Section -->
+        <div class="metric-section">
+          <div class="metric-section-title">
+            <h4>Email Alert Recipients</h4>
+          </div>
+          <div class="recipients-container">
+            <p class="recipients-help">Select the users who will receive email notifications for resource breaches. If none are selected, all administrators will be notified by default.</p>
+            <div v-if="loadingUsers" class="recipients-loading">Loading users...</div>
+            <div v-else class="recipients-grid">
+              <label v-for="u in users" :key="u.id" class="recipient-checkbox-label">
+                <input
+                  type="checkbox"
+                  :value="u.id"
+                  v-model="form.alert_recipients"
+                />
+                <span class="recipient-info">
+                  <span class="recipient-name">{{ u.name }}</span>
+                  <span class="recipient-email">{{ u.email }}</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+        </div>
         <!-- Actions -->
         <div class="modal-actions">
           <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
@@ -156,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { apiFetch } from '../utils/api';
 
 interface ServerWithThresholds {
@@ -172,6 +196,13 @@ interface ServerWithThresholds {
   disk_threshold_info?: number;
   disk_threshold_warning?: number;
   disk_threshold_critical?: number;
+  alert_recipients?: number[];
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
 }
 
 const props = defineProps<{
@@ -185,6 +216,27 @@ const emit = defineEmits<{
 
 const serverName = computed(() => props.server.name);
 
+const users = ref<User[]>([]);
+const loadingUsers = ref(false);
+
+async function fetchUsers() {
+  loadingUsers.value = true;
+  try {
+    const res = await apiFetch('/users');
+    if (res.ok) {
+      users.value = await res.json();
+    }
+  } catch (e) {
+    console.error('Failed to load users:', e);
+  } finally {
+    loadingUsers.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchUsers();
+});
+
 // Setup form defaults, fallback to standard settings if database values are null/undefined
 const form = ref({
   cpu_threshold_info:     props.server.cpu_threshold_info ?? 60,
@@ -196,6 +248,7 @@ const form = ref({
   disk_threshold_info:     props.server.disk_threshold_info ?? 60,
   disk_threshold_warning:  props.server.disk_threshold_warning ?? 70,
   disk_threshold_critical: props.server.disk_threshold_critical ?? 90,
+  alert_recipients:        props.server.alert_recipients ? [...props.server.alert_recipients] : [],
 });
 
 const submitting = ref(false);
@@ -248,6 +301,10 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
+.form-view{
+  max-height: 60vh;
+  overflow-y: auto;
+}
 /* Overlay */
 .modal-overlay {
   position: fixed;
@@ -521,5 +578,88 @@ async function handleSubmit() {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Alert Recipients */
+.recipients-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipients-help {
+  font-size: 0.775rem;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.recipients-loading {
+  font-size: 0.85rem;
+  color: #64748b;
+  padding: 10px 0;
+}
+
+.recipients-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.recipients-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.recipients-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recipients-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.recipient-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recipient-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.recipient-checkbox-label input[type="checkbox"] {
+  accent-color: #6366f1;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.recipient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recipient-name {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.recipient-email {
+  font-size: 0.725rem;
+  color: #64748b;
 }
 </style>

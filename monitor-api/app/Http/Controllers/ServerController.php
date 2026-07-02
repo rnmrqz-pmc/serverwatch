@@ -188,6 +188,7 @@ class ServerController extends Controller
                 'disk_threshold_info'     => $server->disk_threshold_info,
                 'disk_threshold_warning'  => $server->disk_threshold_warning,
                 'disk_threshold_critical' => $server->disk_threshold_critical,
+                'alert_recipients'        => $server->alert_recipients ?? [],
             ];
         });
 
@@ -383,6 +384,7 @@ class ServerController extends Controller
             'disk_threshold_info'     => $server->disk_threshold_info,
             'disk_threshold_warning'  => $server->disk_threshold_warning,
             'disk_threshold_critical' => $server->disk_threshold_critical,
+            'alert_recipients'        => $server->alert_recipients ?? [],
         ]);
     }
 
@@ -554,6 +556,8 @@ class ServerController extends Controller
             'disk_threshold_info'     => 'required|integer|min:1|max:100',
             'disk_threshold_warning'  => 'required|integer|min:1|max:100',
             'disk_threshold_critical' => 'required|integer|min:1|max:100',
+            'alert_recipients'        => 'nullable|array',
+            'alert_recipients.*'      => 'integer|exists:users,id',
         ]);
 
         // Validate threshold ordering: info <= warning <= critical

@@ -32,6 +32,7 @@ class Server extends Model
         'disk_threshold_info',
         'disk_threshold_warning',
         'disk_threshold_critical',
+        'alert_recipients',
     ];
 
     /**
@@ -53,6 +54,7 @@ class Server extends Model
         'disk_threshold_info'     => 'integer',
         'disk_threshold_warning'  => 'integer',
         'disk_threshold_critical' => 'integer',
+        'alert_recipients'        => 'array',
     ];
 
     /**

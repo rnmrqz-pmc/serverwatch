@@ -103,17 +103,23 @@ class MonitorThresholdsCommand extends Command
             $diskWarning = (int) $server->disk_threshold_warning;
             $diskCritical = (int) $server->disk_threshold_critical;
 
+            // Filter recipients for this server
+            $recipients = $adminUsers;
+            if (!empty($server->alert_recipients)) {
+                $recipients = $adminUsers->whereIn('id', $server->alert_recipients);
+            }
+
             // Evaluate CPU
             $cpuSeverity = $this->evaluateBreach($cpuUsage, $cpuInfo, $cpuWarning, $cpuCritical);
-            $this->processMetricAlert($server, 'CPU', $cpuUsage, $cpuSeverity, $adminUsers, $activeIncidents);
+            $this->processMetricAlert($server, 'CPU', $cpuUsage, $cpuSeverity, $recipients, $activeIncidents);
 
             // Evaluate RAM
             $ramSeverity = $this->evaluateBreach($ramUsage, $ramInfo, $ramWarning, $ramCritical);
-            $this->processMetricAlert($server, 'RAM', $ramUsage, $ramSeverity, $adminUsers, $activeIncidents);
+            $this->processMetricAlert($server, 'RAM', $ramUsage, $ramSeverity, $recipients, $activeIncidents);
 
             // Evaluate Disk
             $diskSeverity = $this->evaluateBreach($diskUsage, $diskInfo, $diskWarning, $diskCritical);
-            $this->processMetricAlert($server, 'Disk', $diskUsage, $diskSeverity, $adminUsers, $activeIncidents);
+            $this->processMetricAlert($server, 'Disk', $diskUsage, $diskSeverity, $recipients, $activeIncidents);
         }
 
         // Save active incidents in cache
@@ -137,7 +143,7 @@ class MonitorThresholdsCommand extends Command
         return 'ok';
     }
 
-    private function processMetricAlert(Server $server, string $metric, float $value, string $currentSeverity, $adminUsers, &$activeIncidents)
+    private function processMetricAlert(Server $server, string $metric, float $value, string $currentSeverity, $recipients, &$activeIncidents)
     {
         $cacheKey = "server_{$server->id}_{$metric}_alert_level";
         $lastSeverity = Cache::get($cacheKey, 'ok');
@@ -151,10 +157,10 @@ class MonitorThresholdsCommand extends Command
                 $thresholdVal = $server->{$thresholdField} ?? 0;
 
                 // Send email alert
-                $this->sendEmailAlert($server, $metric, $value, $currentSeverity, $thresholdVal, $adminUsers);
+                $this->sendEmailAlert($server, $metric, $value, $currentSeverity, $thresholdVal, $recipients);
             } else {
                 // Resolved
-                $this->sendEmailResolution($server, $metric, $value, $adminUsers);
+                $this->sendEmailResolution($server, $metric, $value, $recipients);
             }
 
             // Update cached state
@@ -179,25 +185,32 @@ class MonitorThresholdsCommand extends Command
         }
     }
 
-    private function sendEmailAlert(Server $server, string $metric, float $value, string $severity, int $thresholdVal, $adminUsers)
+    private function sendEmailAlert(Server $server, string $metric, float $value, string $severity, int $thresholdVal, $recipients)
     {
         $severityUpper = strtoupper($severity);
         $metricUpper = strtoupper($metric);
         $subject = "[{$severityUpper}] ServerWatcher: {$metricUpper} Threshold Breach on {$server->name}";
 
-        $body = "ServerWatcher Alert Details:\n";
-        $body .= "----------------------------\n";
-        $body .= "Server: {$server->name} ({$server->ip})\n";
-        $body .= "Metric: {$metricUpper}\n";
-        $body .= "Current Value: {$value}%\n";
-        $body .= "Threshold Value: {$thresholdVal}%\n";
-        $body .= "Severity: {$severityUpper}\n";
-        $body .= "Time: " . Carbon::now()->toDateTimeString() . "\n\n";
-        $body .= "Please check the server dashboard for more details.";
+        $appUrl = env('APP_URL', 'http://localhost');
+        if (str_contains($appUrl, 'localhost:8080')) {
+            $appUrl = str_replace(':8080', ':5174', $appUrl);
+        }
 
-        foreach ($adminUsers as $user) {
+        $data = [
+            'serverName'   => $server->name,
+            'serverIp'     => $server->ip,
+            'metric'       => $metricUpper,
+            'value'        => $value,
+            'severity'     => strtolower($severity),
+            'thresholdVal' => $thresholdVal,
+            'time'         => Carbon::now()->toDateTimeString(),
+            'isResolution' => false,
+            'appUrl'       => $appUrl,
+        ];
+
+        foreach ($recipients as $user) {
             try {
-                Mail::raw($body, function ($message) use ($user, $subject) {
+                Mail::send('emails.threshold_alert', $data, function ($message) use ($user, $subject) {
                     $message->to($user->email)->subject($subject);
                 });
             } catch (\Exception $e) {
@@ -207,22 +220,31 @@ class MonitorThresholdsCommand extends Command
         }
     }
 
-    private function sendEmailResolution(Server $server, string $metric, float $value, $adminUsers)
+    private function sendEmailResolution(Server $server, string $metric, float $value, $recipients)
     {
         $metricUpper = strtoupper($metric);
         $subject = "[RESOLVED] ServerWatcher: {$metricUpper} usage normal on {$server->name}";
 
-        $body = "ServerWatcher Resolution Details:\n";
-        $body .= "----------------------------\n";
-        $body .= "Server: {$server->name} ({$server->ip})\n";
-        $body .= "Metric: {$metricUpper} has returned to normal.\n";
-        $body .= "Current Value: {$value}%\n";
-        $body .= "Time: " . Carbon::now()->toDateTimeString() . "\n\n";
-        $body .= "The alert threshold is no longer breached.";
+        $appUrl = env('APP_URL', 'http://localhost');
+        if (str_contains($appUrl, 'localhost:8080')) {
+            $appUrl = str_replace(':8080', ':5174', $appUrl);
+        }
 
-        foreach ($adminUsers as $user) {
+        $data = [
+            'serverName'   => $server->name,
+            'serverIp'     => $server->ip,
+            'metric'       => $metricUpper,
+            'value'        => $value,
+            'severity'     => 'info',
+            'thresholdVal' => 0,
+            'time'         => Carbon::now()->toDateTimeString(),
+            'isResolution' => true,
+            'appUrl'       => $appUrl,
+        ];
+
+        foreach ($recipients as $user) {
             try {
-                Mail::raw($body, function ($message) use ($user, $subject) {
+                Mail::send('emails.threshold_alert', $data, function ($message) use ($user, $subject) {
                     $message->to($user->email)->subject($subject);
                 });
             } catch (\Exception $e) {

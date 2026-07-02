@@ -58,6 +58,7 @@ class ServerThresholdsTest extends TestCase
             'disk_threshold_info'     => 40,
             'disk_threshold_warning'  => 60,
             'disk_threshold_critical' => 80,
+            'alert_recipients'        => [$user->id],
         ]);
 
         $response->assertStatus(200)
@@ -77,6 +78,7 @@ class ServerThresholdsTest extends TestCase
         $this->assertEquals(40, $server->disk_threshold_info);
         $this->assertEquals(60, $server->disk_threshold_warning);
         $this->assertEquals(80, $server->disk_threshold_critical);
+        $this->assertEquals([$user->id], $server->alert_recipients);
     }
 
     public function test_thresholds_validation_rules()
@@ -152,14 +154,15 @@ class ServerThresholdsTest extends TestCase
         $this->instance(PrometheusService::class, $prometheusMock);
 
         // Expect warning email for CPU
-        Mail::shouldReceive('raw')
+        Mail::shouldReceive('send')
             ->once()
             ->with(
-                \Mockery::on(function ($content) {
-                    return str_contains($content, 'CPU') &&
-                           str_contains($content, '75%') &&
-                           str_contains($content, '70%') &&
-                           str_contains($content, 'WARNING');
+                'emails.threshold_alert',
+                \Mockery::on(function ($data) {
+                    return $data['metric'] === 'CPU' &&
+                           $data['value'] === 75.0 &&
+                           $data['thresholdVal'] === 70 &&
+                           $data['severity'] === 'warning';
                 }),
                 \Mockery::on(function ($callback) {
                     return true;
