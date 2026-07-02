@@ -92,10 +92,10 @@
       </div>
     </div>
 
-    <!-- Uptime Timeline (90 Days) -->
+    <!-- Uptime Timeline (30 Days) -->
     <div class="uptime-section" v-if="historyData">
-      <div class="timeline-label-header">Uptime (Last 90 Days)</div>
-      <UptimeBar :server-name="server.name" :history="historyData" :days="90" />
+      <div class="timeline-label-header">Uptime (Last 30 Days)</div>
+      <UptimeBar :server-name="server.name" :history="historyData" :days="30" />
     </div>
 
     <!-- Uptime Timeline (Last 24 Hours) -->
